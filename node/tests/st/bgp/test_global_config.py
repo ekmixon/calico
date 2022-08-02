@@ -68,19 +68,18 @@ class TestBGP(TestBase):
         We run a multi-host test for this as we need to set up real BGP peers.
         """
         with DockerHost('host1',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host1, \
-             DockerHost('host2',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host2:
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host1, DockerHost('host2',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host2:
 
             # Set the default AS number.
             update_bgp_config(host1, asNum=LARGE_AS_NUM)
 
             # Start host1 using the inherited AS, and host2 using a specified
             # AS (same as default).
-            host1.start_calico_node("--backend=%s" % backend)
-            host2.start_calico_node("--backend=%s --as=%s" % (backend, LARGE_AS_NUM))
+            host1.start_calico_node(f"--backend={backend}")
+            host2.start_calico_node(f"--backend={backend} --as={LARGE_AS_NUM}")
 
             # Create a network and a couple of workloads on each host.
             network1 = host1.create_network("subnet1")

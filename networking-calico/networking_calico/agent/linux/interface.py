@@ -72,9 +72,9 @@ class RoutedInterfaceDriver(interface.LinuxInterfaceDriver):
         device = ip_lib.IPDevice(device_name)
         device.set_log_fail_as_error(False)
         for ip_cidr in ip_cidrs:
-            LOG.debug("Remove subnet route for cidr %s" % ip_cidr)
+            LOG.debug(f"Remove subnet route for cidr {ip_cidr}")
             net = netaddr.IPNetwork(ip_cidr)
-            LOG.debug("=> real cidr %s" % net.cidr)
+            LOG.debug(f"=> real cidr {net.cidr}")
             try:
                 device.route.delete_onlink_route(str(net.cidr))
             except Exception:
@@ -83,7 +83,7 @@ class RoutedInterfaceDriver(interface.LinuxInterfaceDriver):
                 # which apparently does not derive from RuntimeError.
                 # I don't want to code an explicit pyroute2 dependency
                 # here, so fall back to using Exception.
-                LOG.debug("Subnet route %s did not exist" % net.cidr)
+                LOG.debug(f"Subnet route {net.cidr} did not exist")
 
     def unplug(self, device_name, bridge=None, namespace=None, prefix=None):
         """Unplug the interface."""

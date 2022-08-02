@@ -134,8 +134,8 @@ class CalicoctlOutput:
             text:   (optional) Expected text in the command output.
         """
         assert self.error, "Expected error running command; \n" \
-            "command=" + self.command + "\noutput=" + self.output
-        assert not "panic" in self.output, "Exited with an error due to a panic"
+                "command=" + self.command + "\noutput=" + self.output
+        assert "panic" not in self.output, "Exited with an error due to a panic"
         self.assert_output_contains(text)
 
     def assert_no_error(self, text=None):
@@ -160,8 +160,8 @@ class CalicoctlOutput:
         if not text:
             return
         assert text == self.output, "Expected output to exactly match; \n" + \
-                                    "command=" + self.command + "\noutput=\n" + self.output + \
-                                    "\nexpected=\n" + text
+                                        "command=" + self.command + "\noutput=\n" + self.output + \
+                                        "\nexpected=\n" + text
 
     def assert_output_equals_ignore_res_version(self, text):
         """
@@ -188,8 +188,8 @@ class CalicoctlOutput:
         if not text:
             return
         assert text in self.output, "Expected text in output; \n" + \
-            "command=" + self.command + "\noutput=\n" + self.output + \
-            "\nexpected=\n" + text
+                "command=" + self.command + "\noutput=\n" + self.output + \
+                "\nexpected=\n" + text
 
     def assert_output_not_contains(self, text):
         """
@@ -199,9 +199,15 @@ class CalicoctlOutput:
         """
         if not text:
             return
-        assert not text in self.output, "Unexpected text in output; \n" + \
-            "command=" + self.command + "\noutput=\n" + self.output + \
-            "\nunexpected=\n" + text
+        assert text not in self.output, (
+            "Unexpected text in output; \n"
+            + "command="
+            + self.command
+            + "\noutput=\n"
+            + self.output
+            + "\nunexpected=\n"
+            + text
+        )
 
 
 def calicoctl(command, data=None, load_as_stdin=False, format="yaml", only_stdout=False, no_config=False, kdd=False, allowVersionMismatch=True):
@@ -232,11 +238,12 @@ def calicoctl(command, data=None, load_as_stdin=False, format="yaml", only_stdou
     stdin = ''
     option_file = ''
 
-    if data and load_as_stdin:
-        stdin = 'cat /tmp/input-data | '
-        option_file = ' -f -'
-    elif data and not load_as_stdin:
-        option_file = ' -f /tmp/input-data'
+    if data:
+        if load_as_stdin:
+            stdin = 'cat /tmp/input-data | '
+            option_file = ' -f -'
+        else:
+            option_file = ' -f /tmp/input-data'
 
     calicoctl_bin = os.environ.get("CALICOCTL", "/code/bin/calicoctl-linux-amd64")
 
@@ -244,28 +251,38 @@ def calicoctl(command, data=None, load_as_stdin=False, format="yaml", only_stdou
         calicoctl_bin += " --allow-version-mismatch"
 
     if ETCD_SCHEME == "https":
-        etcd_auth = "%s:2379" % ETCD_HOSTNAME_SSL
+        etcd_auth = f"{ETCD_HOSTNAME_SSL}:2379"
     else:
-        etcd_auth = "%s:2379" % get_ip()
+        etcd_auth = f"{get_ip()}:2379"
 
     # Export the environment, in case the command has multiple parts, e.g.
     # use of | or ;
     #
     # Pass in all etcd params, the values will be empty if not set anyway
-    calicoctl_env_cmd = "export ETCD_ENDPOINTS=%s; " \
-                "export ETCD_CA_CERT_FILE=%s; " \
-                "export ETCD_CERT_FILE=%s; " \
-                "export ETCD_KEY_FILE=%s; " \
-                "export DATASTORE_TYPE=%s; %s %s" % \
-                (ETCD_SCHEME+"://"+etcd_auth, ETCD_CA, ETCD_CERT, ETCD_KEY,
-                 "etcdv3", stdin, calicoctl_bin)
+    calicoctl_env_cmd = (
+        "export ETCD_ENDPOINTS=%s; "
+        "export ETCD_CA_CERT_FILE=%s; "
+        "export ETCD_CERT_FILE=%s; "
+        "export ETCD_KEY_FILE=%s; "
+        "export DATASTORE_TYPE=%s; %s %s"
+        % (
+            f"{ETCD_SCHEME}://{etcd_auth}",
+            ETCD_CA,
+            ETCD_CERT,
+            ETCD_KEY,
+            "etcdv3",
+            stdin,
+            calicoctl_bin,
+        )
+    )
+
     if kdd:
         calicoctl_env_cmd = "export DATASTORE_TYPE=kubernetes; " \
                 "export KUBECONFIG=%s; %s %s" % \
                 (KUBECONFIG, stdin, calicoctl_bin)
     if no_config :
         calicoctl_env_cmd = calicoctl_bin
-    full_cmd = calicoctl_env_cmd + " " + command + option_file
+    full_cmd = f"{calicoctl_env_cmd} {command}{option_file}"
 
     try:
         output = log_and_run(full_cmd, stderr=(None if only_stdout else STDOUT))
@@ -342,10 +359,14 @@ def find_and_format_creation_timestamp(decoded):
     return decoded
 
 def format_creation_timestamp(decoded):
-    if isinstance(decoded, dict) and 'metadata' in decoded and 'creationTimestamp' in decoded['metadata']:
-        if isinstance(decoded['metadata']['creationTimestamp'], datetime):
-            decoded['metadata']['creationTimestamp'] = decoded.get('metadata', {}). \
-                    get('creationTimestamp', datetime.utcnow()).isoformat() + 'Z'
+    if (
+        isinstance(decoded, dict)
+        and 'metadata' in decoded
+        and 'creationTimestamp' in decoded['metadata']
+        and isinstance(decoded['metadata']['creationTimestamp'], datetime)
+    ):
+        decoded['metadata']['creationTimestamp'] = decoded.get('metadata', {}). \
+                get('creationTimestamp', datetime.utcnow()).isoformat() + 'Z'
     return decoded
 
 def writeyaml(filename, data):
@@ -376,9 +397,7 @@ def writejson(filename, data):
 
 
 def truncate_for_log(text, length):
-    if len(text) <=length:
-        return text
-    return text[:length] + "... <truncated>"
+    return text if len(text) <=length else f"{text[:length]}... <truncated>"
 
 
 def get_ip(v6=False):
@@ -460,11 +479,12 @@ def curl_etcd(path, options=None, recursive=True, ip=None):
             shell=True)
     else:
         rc = check_output(
-            "curl -sL http://%s:2379/v2/keys/%s?recursive=%s %s"
-            % (ip, path, str(recursive).lower(), " ".join(options)),
-            shell=True)
+            f'curl -sL http://{ip}:2379/v2/keys/{path}?recursive={str(recursive).lower()} {" ".join(options)}',
+            shell=True,
+        )
 
-    logger.info("etcd RC: %s" % rc.strip())
+
+    logger.info(f"etcd RC: {rc.strip()}")
     return json.loads(rc.strip())
 
 def wipe_etcd(ip):
@@ -486,9 +506,18 @@ def wipe_etcd(ip):
                     "ETCDCTL_CERT=/etc/calico/certs/client.pem " +
                     "ETCDCTL_KEY=/etc/calico/certs/client-key.pem ")
 
-    check_output("docker exec " + etcd_container_name + " sh -c '" + tls_vars +
-                 "ETCDCTL_API=3 etcdctl del --prefix /calico" +
-                 "'", shell=True)
+    check_output(
+        (
+            (
+                f"docker exec {etcd_container_name}"
+                + " sh -c '"
+                + tls_vars
+                + "ETCDCTL_API=3 etcdctl del --prefix /calico"
+            )
+            + "'"
+        ),
+        shell=True,
+    )
 
 def make_list(kind, items):
     """
@@ -501,7 +530,7 @@ def make_list(kind, items):
     """
     assert isinstance(items, list)
     if "List" not in kind:
-        kind = kind + "List"
+        kind = f"{kind}List"
     return {
         'kind': kind,
         'apiVersion': API_VERSION,
@@ -539,24 +568,33 @@ def set_cluster_version(calico_version="", kdd=False):
     """
 
     if ETCD_SCHEME == "https":
-        etcd_auth = "%s:2379" % ETCD_HOSTNAME_SSL
+        etcd_auth = f"{ETCD_HOSTNAME_SSL}:2379"
     else:
-        etcd_auth = "%s:2379" % get_ip()
+        etcd_auth = f"{get_ip()}:2379"
 
     calico_helper_bin = "/code/tests/fv/helper/bin/calico_version_helper"
-    full_cmd = "export ETCD_ENDPOINTS=%s; " \
-        "export ETCD_CA_CERT_FILE=%s; " \
-        "export ETCD_CERT_FILE=%s; " \
-        "export ETCD_KEY_FILE=%s; " \
-        "export DATASTORE_TYPE=%s; %s" % \
-        (ETCD_SCHEME+"://"+etcd_auth, ETCD_CA, ETCD_CERT, ETCD_KEY,
-         "etcdv3", calico_helper_bin)
+    full_cmd = (
+        "export ETCD_ENDPOINTS=%s; "
+        "export ETCD_CA_CERT_FILE=%s; "
+        "export ETCD_CERT_FILE=%s; "
+        "export ETCD_KEY_FILE=%s; "
+        "export DATASTORE_TYPE=%s; %s"
+        % (
+            f"{ETCD_SCHEME}://{etcd_auth}",
+            ETCD_CA,
+            ETCD_CERT,
+            ETCD_KEY,
+            "etcdv3",
+            calico_helper_bin,
+        )
+    )
+
     if kdd:
         full_cmd = "export DATASTORE_TYPE=kubernetes; " \
             "export KUBECONFIG=%s; %s" % \
             (KUBECONFIG, calico_helper_bin)
     if calico_version:
-        full_cmd += " -v " + calico_version
+        full_cmd += f" -v {calico_version}"
 
     try:
         output = log_and_run(full_cmd, stderr=STDOUT)

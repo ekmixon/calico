@@ -50,28 +50,27 @@ class DnsmasqRouted(dhcp.Dnsmasq):
             '--no-hosts',
             _no_resolv,
             '--except-interface=lo',
-            '--pid-file=%s' % pid_file,
-            '--dhcp-hostsfile=%s' % self.get_conf_file_name('host'),
-            '--addn-hosts=%s' % self.get_conf_file_name('addn_hosts'),
-            '--dhcp-optsfile=%s' % self.get_conf_file_name('opts'),
-            '--dhcp-leasefile=%s' % self.get_conf_file_name('leases'),
+            f'--pid-file={pid_file}',
+            f"--dhcp-hostsfile={self.get_conf_file_name('host')}",
+            f"--addn-hosts={self.get_conf_file_name('addn_hosts')}",
+            f"--dhcp-optsfile={self.get_conf_file_name('opts')}",
+            f"--dhcp-leasefile={self.get_conf_file_name('leases')}",
             '--dhcp-match=set:ipxe,175',
         ]
+
         if self.device_manager.driver.bridged:
-            cmd += [
-                '--bind-interfaces',
-                '--interface=%s' % self.interface_name,
-            ]
+            cmd += ['--bind-interfaces', f'--interface={self.interface_name}']
         else:
             cmd += [
                 '--bind-dynamic',
-                '--interface=%s' % self.interface_name,
+                f'--interface={self.interface_name}',
                 '--interface=tap*',
-                '--bridge-interface=%s,tap*' % self.interface_name,
+                f'--bridge-interface={self.interface_name},tap*',
             ]
 
+
         possible_leases = 0
-        for i, subnet in enumerate(self._get_all_subnets(self.network)):
+        for subnet in self._get_all_subnets(self.network):
             mode = None
             # if a subnet is specified to have dhcp disabled
             if not subnet.enable_dhcp:
@@ -90,27 +89,39 @@ class DnsmasqRouted(dhcp.Dnsmasq):
 
             cidr = netaddr.IPNetwork(subnet.cidr)
 
-            if self.conf.dhcp_lease_duration == -1:
-                lease = 'infinite'
-            else:
-                lease = '%ss' % self.conf.dhcp_lease_duration
+            lease = (
+                'infinite'
+                if self.conf.dhcp_lease_duration == -1
+                else f'{self.conf.dhcp_lease_duration}s'
+            )
 
             # mode is optional and is not set - skip it
             if mode:
                 if subnet.ip_version == 4:
-                    cmd.append('--dhcp-range=%s%s,%s,%s,%s,%s' %
-                               ('set:', 'subnet-%s' % subnet.id,
-                                cidr.network, mode, cidr.netmask, lease))
+                    cmd.append(
+                        f'--dhcp-range=set:subnet-{subnet.id},{cidr.network},{mode},{cidr.netmask},{lease}'
+                    )
+
                 else:
                     if cidr.prefixlen < 64:
                         LOG.debug('Ignoring subnet %(subnet)s, CIDR has '
                                   'prefix length < 64: %(cidr)s',
                                   {'subnet': subnet.id, 'cidr': cidr})
                         continue
-                    cmd.append('--dhcp-range=%s%s,%s,%s,%d,%s' %
-                               ('set:', 'subnet-%s' % subnet.id,
-                                cidr.network, mode,
-                                cidr.prefixlen, lease))
+                    cmd.append(
+                        (
+                            '--dhcp-range=%s%s,%s,%s,%d,%s'
+                            % (
+                                'set:',
+                                f'subnet-{subnet.id}',
+                                cidr.network,
+                                mode,
+                                cidr.prefixlen,
+                                lease,
+                            )
+                        )
+                    )
+
                 possible_leases += cidr.size
 
         mtu = getattr(self.network, 'mtu', 0)
@@ -137,17 +148,15 @@ class DnsmasqRouted(dhcp.Dnsmasq):
         except AttributeError:
             pass
 
-        cmd.append('--conf-file=%s' % self.conf.dnsmasq_config_file)
-        for server in self.conf.dnsmasq_dns_servers:
-            cmd.append('--server=%s' % server)
-
+        cmd.append(f'--conf-file={self.conf.dnsmasq_config_file}')
+        cmd.extend(f'--server={server}' for server in self.conf.dnsmasq_dns_servers)
         try:
             if self.conf.dns_domain:
-                cmd.append('--domain=%s' % self.conf.dns_domain)
+                cmd.append(f'--domain={self.conf.dns_domain}')
         except AttributeError:
             try:
                 if self.dns_domain:
-                    cmd.append('--domain=%s' % self.dns_domain)
+                    cmd.append(f'--domain={self.dns_domain}')
             except AttributeError:
                 pass
 
@@ -165,9 +174,8 @@ class DnsmasqRouted(dhcp.Dnsmasq):
                 LOG.error('Error while create dnsmasq log dir: %s', log_dir)
             else:
                 log_filename = os.path.join(log_dir, 'dhcp_dns_log')
-                cmd.append('--log-queries')
-                cmd.append('--log-dhcp')
-                cmd.append('--log-facility=%s' % log_filename)
+                cmd.extend(('--log-queries', '--log-dhcp'))
+                cmd.append(f'--log-facility={log_filename}')
 
         return cmd
 
@@ -178,23 +186,22 @@ class DnsmasqRouted(dhcp.Dnsmasq):
         # --dhcp-range options.
         prog = re.compile('(--dhcp-range=set:[^,]+,[0-9a-f:]+),static,(.*)')
         for option in copy.copy(cmd):
-            m = prog.match(option)
-            if m:
+            if m := prog.match(option):
                 cmd.remove(option)
-                cmd.append(m.group(1) + ',static,off-link,' + m.group(2))
+                cmd.append(m[1] + ',static,off-link,' + m[2])
 
         # Add '--enable-ra'.
         cmd.append('--enable-ra')
 
         # Enumerate precisely the TAP interfaces to listen on.
         cmd.remove('--interface=tap*')
-        cmd.remove('--bridge-interface=%s,tap*' % self.interface_name)
-        bridge_option = '--bridge-interface=%s' % self.interface_name
+        cmd.remove(f'--bridge-interface={self.interface_name},tap*')
+        bridge_option = f'--bridge-interface={self.interface_name}'
         for port in self.network.ports:
             if port.device_id.startswith('tap'):
                 LOG.debug('Listen on %s', port.device_id)
-                cmd.append('--interface=%s' % port.device_id)
-                bridge_option = bridge_option + ',' + port.device_id
+                cmd.append(f'--interface={port.device_id}')
+                bridge_option = f'{bridge_option},{port.device_id}'
         cmd.append(bridge_option)
 
         return cmd

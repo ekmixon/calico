@@ -9,7 +9,7 @@ DOCS_PATH = (
     else os.environ.get("CALICO_DOCS_PATH")
 )
 
-with open("%s/_data/versions.yml" % DOCS_PATH) as f:
+with open(f"{DOCS_PATH}/_data/versions.yml") as f:
     versions = yaml.safe_load(f)
     RELEASE_VERSION = versions[0]["title"]
 
@@ -18,17 +18,22 @@ with open("%s/_data/versions.yml" % DOCS_PATH) as f:
         MAJOR_MINOR_VERSION = match.groups()[0]
     assert MAJOR_MINOR_VERSION != ""
 
-    print("[INFO] using _data/versions.yaml, discovered version: %s, major.minor version: %s" % (RELEASE_VERSION, MAJOR_MINOR_VERSION))
+    print(
+        f"[INFO] using _data/versions.yaml, discovered version: {RELEASE_VERSION}, major.minor version: {MAJOR_MINOR_VERSION}"
+    )
 
 def test_calico_release_has_windows_zip():
     req = requests.head(
-        "https://github.com/projectcalico/calico/releases/download/%s/calico-windows-%s.zip"
-        % (RELEASE_VERSION, RELEASE_VERSION)
+        f"https://github.com/projectcalico/calico/releases/download/{RELEASE_VERSION}/calico-windows-{RELEASE_VERSION}.zip"
     )
+
     assert req.status_code == 302
 
 def test_calico_windows_script_uses_expected_install_zip():
-    resp = requests.get('https://projectcalico.docs.tigera.io/archive/%s/scripts/install-calico-windows.ps1' % MAJOR_MINOR_VERSION)
+    resp = requests.get(
+        f'https://projectcalico.docs.tigera.io/archive/{MAJOR_MINOR_VERSION}/scripts/install-calico-windows.ps1'
+    )
+
     lines = resp.text.split('\n')
     # Go through install-calico-windows.ps1 and extract the powershell variables
     # used to download the corresponding calico-windows.zip file.

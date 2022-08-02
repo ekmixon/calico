@@ -61,8 +61,10 @@ class TestUpdateIPAddress(TestBase):
         """
         Update the calico node resource to have the correct IP for the host.
         """
-        noder = json.loads(host.calicoctl(
-            "get node %s --output=json" % host.get_hostname()))
+        noder = json.loads(
+            host.calicoctl(f"get node {host.get_hostname()} --output=json")
+        )
+
         noder["spec"]["bgp"]["ipv4Address"] = str(host.ip)
         host.writejson("new_data", noder)
         host.calicoctl("apply -f new_data")

@@ -38,12 +38,7 @@ class MockLease(object):
         self.id = id
 
     def ttl(self):
-        if self.id == 1:
-            # A reasonable TTL.
-            return 30
-        else:
-            # An unreasonably large TTL.
-            return 30000000
+        return 30 if self.id == 1 else 30000000
 
 
 class TestCompaction(unittest.TestCase):

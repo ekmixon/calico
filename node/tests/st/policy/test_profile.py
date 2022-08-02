@@ -55,18 +55,19 @@ class MultiHostMainline(TestBase):
         host2 = self.host2
 
         (self.n1_workloads, self.n2_workloads, self.networks) = \
-            self._setup_workloads(host1, host2)
+                self._setup_workloads(host1, host2)
 
         # Get the original profiles:
         output = host1.calicoctl("get profile -o yaml")
         self.original_profiles = yaml.safe_load(output)['items']
 
         # Filter out the default-allow profile
-        temp = []
-        for profile in self.original_profiles:
-            if profile['metadata']['name'] != "projectcalico-default-allow":
-                temp.append(profile)
-                    
+        temp = [
+            profile
+            for profile in self.original_profiles
+            if profile['metadata']['name'] != "projectcalico-default-allow"
+        ]
+
         self.original_profiles = temp   
 
         # Make a copy of the profiles to mess about with.
@@ -130,15 +131,11 @@ class MultiHostMainline(TestBase):
         prof_n1, prof_n2 = self._get_profiles(self.new_profiles)
         for workload in self.n1_workloads:
             ip = workload.ip
-            rule = {'action': 'Allow',
-                    'source':
-                        {'nets': ['%s/32' % ip]}}
+            rule = {'action': 'Allow', 'source': {'nets': [f'{ip}/32']}}
             prof_n2['spec']['ingress'].append(rule)
         for workload in self.n2_workloads:
             ip = workload.ip
-            rule = {'action': 'Allow',
-                    'source':
-                        {'nets': ['%s/32' % ip]}}
+            rule = {'action': 'Allow', 'source': {'nets': [f'{ip}/32']}}
             prof_n1['spec']['ingress'].append(rule)
         self._apply_new_profile(self.new_profiles, self.host1)
         self.assert_connectivity(retries=2,
@@ -168,8 +165,8 @@ class MultiHostMainline(TestBase):
         # Add a rule to each profile that allows traffic from all the workloads in the *other*
         # network (which would normally be blocked).
         prof_n1, prof_n2 = self._get_profiles(self.new_profiles)
-        n1_ips = [str(workload.ip) + "/32" for workload in self.n1_workloads]
-        n2_ips = [str(workload.ip) + "/32" for workload in self.n2_workloads]
+        n1_ips = [f"{str(workload.ip)}/32" for workload in self.n1_workloads]
+        n2_ips = [f"{str(workload.ip)}/32" for workload in self.n2_workloads]
         rule = {'action': 'Allow',
                 'source': {'nets': n1_ips}}
         prof_n2['spec']['ingress'].append(rule)
@@ -186,8 +183,8 @@ class MultiHostMainline(TestBase):
         # Add a rule to each profile that allows traffic from all the workloads in the *other*
         # network by means of a network set (which would normally be blocked).
         prof_n1, prof_n2 = self._get_profiles(self.new_profiles)
-        n1_ips = [str(workload.ip) + "/32" for workload in self.n1_workloads]
-        n2_ips = [str(workload.ip) + "/32" for workload in self.n2_workloads]
+        n1_ips = [f"{str(workload.ip)}/32" for workload in self.n1_workloads]
+        n2_ips = [f"{str(workload.ip)}/32" for workload in self.n2_workloads]
 
         netset = {
             'apiVersion': 'projectcalico.org/v3',
@@ -242,11 +239,11 @@ class MultiHostMainline(TestBase):
         # one of the IPs using a notNets match.  The end result is that the first workload in
         # each group should be blocked but the other should be allowed.
         prof_n1, prof_n2 = self._get_profiles(self.new_profiles)
-        n1_ips = [str(workload.ip) + "/32" for workload in self.n1_workloads]
+        n1_ips = [f"{str(workload.ip)}/32" for workload in self.n1_workloads]
         n1_denied_ips = n1_ips[:1]
         _log.info("Network 1 IPs: %s; Denied IPs: %s", n1_ips, n1_denied_ips)
 
-        n2_ips = [str(workload.ip) + "/32" for workload in self.n2_workloads]
+        n2_ips = [f"{str(workload.ip)}/32" for workload in self.n2_workloads]
         rule = {'action': 'Allow',
                 'source': {'nets': n1_ips,
                            'notNets': n1_denied_ips}}
@@ -285,7 +282,7 @@ class MultiHostMainline(TestBase):
                                  fail_list=self.n1_workloads + self.n2_workloads[1:])
 
         # Add a destination whitelist to n2 that allows pods within it to reach other pods in n2.
-        n2_ips = [str(workload.ip) + "/32" for workload in self.n2_workloads]
+        n2_ips = [f"{str(workload.ip)}/32" for workload in self.n2_workloads]
         rule = {'action': 'Allow',
                 'destination': {'nets': n2_ips}}
         prof_n2['spec']['egress'] = [rule]
@@ -296,10 +293,12 @@ class MultiHostMainline(TestBase):
 
         # Add some rules that have a single nets entry and multiple notNets entries.  These are
         # rendered a bit differently in Felix.
-        n1_ips = [str(workload.ip) + "/32" for workload in self.n1_workloads]
-        rule1 = {'action': 'Allow',
-                 'destination': {'nets': n1_ips[0:1],
-                                 'notNets': n1_ips[1:]}}
+        n1_ips = [f"{str(workload.ip)}/32" for workload in self.n1_workloads]
+        rule1 = {
+            'action': 'Allow',
+            'destination': {'nets': n1_ips[:1], 'notNets': n1_ips[1:]},
+        }
+
         rule2 = {'action': 'Allow',
                  'destination': {'nets': n1_ips[1:2],
                                  'notNets': n1_ips[:1]}}
@@ -412,39 +411,42 @@ class MultiHostMainline(TestBase):
         network2 = host1.create_network("testnet2")
         networks = [network1, network2]
 
-        n1_workloads = []
-        n2_workloads = []
+        n1_workloads = [
+            host2.create_workload(
+                "workload_h2n1_1", image="workload", network=network1
+            ),
+            host1.create_workload(
+                "workload_h1n1_1", image="workload", network=network1
+            ),
+            host1.create_workload(
+                "workload_h1n1_2", image="workload", network=network1
+            ),
+        ]
 
-        # Create two workloads on host1 and one on host2 all in network 1.
-        n1_workloads.append(host2.create_workload("workload_h2n1_1",
-                                                  image="workload",
-                                                  network=network1))
-        n1_workloads.append(host1.create_workload("workload_h1n1_1",
-                                                  image="workload",
-                                                  network=network1))
-        n1_workloads.append(host1.create_workload("workload_h1n1_2",
-                                                  image="workload",
-                                                  network=network1))
+        n2_workloads = [
+            host1.create_workload(
+                "workload_h1n2_1", image="workload", network=network2
+            ),
+            host1.create_workload(
+                "workload_h1n2_2", image="workload", network=network2
+            ),
+            host2.create_workload(
+                "workload_h2n2_1", image="workload", network=network2
+            ),
+        ]
 
-        # Create similar workloads in network 2.
-        n2_workloads.append(host1.create_workload("workload_h1n2_1",
-                                                  image="workload",
-                                                  network=network2))
-        n2_workloads.append(host1.create_workload("workload_h1n2_2",
-                                                  image="workload",
-                                                  network=network2))
-        n2_workloads.append(host2.create_workload("workload_h2n2_1",
-                                                  image="workload",
-                                                  network=network2))
-        print "*******************"
-        print "Network1 is:\n%s\n%s" % (
-            [x.ip for x in n1_workloads],
-            [x.name for x in n1_workloads])
-        print "Network2 is:\n%s\n%s" % (
-            [x.ip for x in n2_workloads],
-            [x.name for x in n2_workloads])
-        print "*******************"
-
+        # Create the networks on host1, but they should be usable from all
+        # hosts.
+        network1 = host1.create_network("testnet1")
+        # Create the networks on host1, but they should be usable from all
+        # hosts.
+        network1 = host1.create_network("testnet1")
+        # Create the networks on host1, but they should be usable from all
+        # hosts.
+        network1 = host1.create_network("testnet1")
+        # Create the networks on host1, but they should be usable from all
+        # hosts.
+        network1 = host1.create_network("testnet1")
         # Assert that endpoints are in Calico
         assert_number_endpoints(host1, 4)
         assert_number_endpoints(host2, 2)

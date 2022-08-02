@@ -59,7 +59,7 @@ class TestCalicoctlConvert(TestBase):
         Test convert successfully
         """
         # Convert the file
-        rc = calicoctl("convert -o %s -f %s" % (format, filename))
+        rc = calicoctl(f"convert -o {format} -f {filename}")
 
         # Get expected conversion output filename (file in output/ dir with
         # yaml or json extension)

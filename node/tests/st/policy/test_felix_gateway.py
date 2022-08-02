@@ -148,13 +148,14 @@ class TestFelixOnGateway(TestBase):
         _log.info("External server IP: %s", cls.ext_server_ip)
 
         # Configure the internal host to use the gateway for the external IP.
-        cls.host.execute("ip route add %s via %s" %
-                         (cls.ext_server_ip, cls.gateway_int_ip))
+        cls.host.execute(f"ip route add {cls.ext_server_ip} via {cls.gateway_int_ip}")
 
         # Configure the gateway to forward and NAT.
         cls.gateway.execute("sysctl -w net.ipv4.ip_forward=1")
-        cls.gateway.execute("iptables -t nat -A POSTROUTING --destination %s -j MASQUERADE" %
-                            cls.ext_server_ip)
+        cls.gateway.execute(
+            f"iptables -t nat -A POSTROUTING --destination {cls.ext_server_ip} -j MASQUERADE"
+        )
+
 
         cls.calinet = cls.gateway.create_network("calinet")
         cls.gateway_workload = cls.gateway.create_workload(
@@ -539,28 +540,30 @@ class TestFelixOnGateway(TestBase):
         })
 
     def add_workload_egress(self, order, action):
-        self.add_policy({
-            'apiVersion': 'projectcalico.org/v3',
-            'kind': 'GlobalNetworkPolicy',
-            'metadata': {
-                'name': 'workload-egress',
-            },
-            'spec': {
-                'order': order,
-                'ingress': [],
-                'egress': [
-                    {
-                        'protocol': 'TCP',
-                        'destination': {
-                            'ports': [80],
-                            'nets': [self.ext_server_ip + "/32"],
-                        },
-                        'action': action
-                    },
-                ],
-                'selector': '!has(nodeEth)'
+        self.add_policy(
+            {
+                'apiVersion': 'projectcalico.org/v3',
+                'kind': 'GlobalNetworkPolicy',
+                'metadata': {
+                    'name': 'workload-egress',
+                },
+                'spec': {
+                    'order': order,
+                    'ingress': [],
+                    'egress': [
+                        {
+                            'protocol': 'TCP',
+                            'destination': {
+                                'ports': [80],
+                                'nets': [f"{self.ext_server_ip}/32"],
+                            },
+                            'action': action,
+                        }
+                    ],
+                    'selector': '!has(nodeEth)',
+                },
             }
-        })
+        )
 
     def add_prednat_ingress(self, order, action):
         self.add_policy({
@@ -627,91 +630,91 @@ class TestFelixOnGateway(TestBase):
         self.delete_all("globalnetworkpolicy untrack-ingress")
 
     def add_untrack_gw_ext(self, order, action):
-        self.add_policy({
-            'apiVersion': 'projectcalico.org/v3',
-            'kind': 'GlobalNetworkPolicy',
-            'metadata': {
-                'name': 'untrack-egress',
-            },
-            'spec': {
-                'order': order,
-                'ingress': [
-                    {
-                        'protocol': 'TCP',
-                        'source': {
-                            'ports': [80],
-                            'nets': [self.ext_server_ip + "/32"],
-                        },
-                        'action': action
-                    },
-                ],
-                'egress': [
-                    {
-                        'protocol': 'TCP',
-                        'destination': {
-                            'ports': [80],
-                            'nets': [self.ext_server_ip + "/32"],
-                        },
-                        'action': action
-                    },
-                ],
-                'selector': 'nodeEth == "gateway-ext"',
-                'applyOnForward': True,
-                'doNotTrack': True
+        self.add_policy(
+            {
+                'apiVersion': 'projectcalico.org/v3',
+                'kind': 'GlobalNetworkPolicy',
+                'metadata': {
+                    'name': 'untrack-egress',
+                },
+                'spec': {
+                    'order': order,
+                    'ingress': [
+                        {
+                            'protocol': 'TCP',
+                            'source': {
+                                'ports': [80],
+                                'nets': [f"{self.ext_server_ip}/32"],
+                            },
+                            'action': action,
+                        }
+                    ],
+                    'egress': [
+                        {
+                            'protocol': 'TCP',
+                            'destination': {
+                                'ports': [80],
+                                'nets': [f"{self.ext_server_ip}/32"],
+                            },
+                            'action': action,
+                        }
+                    ],
+                    'selector': 'nodeEth == "gateway-ext"',
+                    'applyOnForward': True,
+                    'doNotTrack': True,
+                },
             }
-        })
+        )
 
     def del_untrack_gw_ext(self):
         self.delete_all("globalnetworkpolicy untrack-egress")
 
     def add_ingress_policy(self, order, action, forward):
-        self.add_policy({
-            'apiVersion': 'projectcalico.org/v3',
-            'kind': 'GlobalNetworkPolicy',
-            'metadata': {
-                'name': 'port80-int-%s' % str(forward).lower(),
-            },
-            'spec': {
-                'order': order,
-                'ingress': [
-                    {
-                        'protocol': 'TCP',
-                        'destination': {
-                            'ports': [80]
+        self.add_policy(
+            {
+                'apiVersion': 'projectcalico.org/v3',
+                'kind': 'GlobalNetworkPolicy',
+                'metadata': {'name': f'port80-int-{str(forward).lower()}'},
+                'spec': {
+                    'order': order,
+                    'ingress': [
+                        {
+                            'protocol': 'TCP',
+                            'destination': {'ports': [80]},
+                            'action': action,
                         },
-                        'action': action
-                    },
-                ],
-                'egress': [],
-                'selector': 'nodeEth == "gateway-int"',
-                'applyOnForward': forward
+                    ],
+                    'egress': [],
+                    'selector': 'nodeEth == "gateway-int"',
+                    'applyOnForward': forward,
+                },
             }
-        })
+        )
 
     def add_egress_policy(self, order, action, forward):
-        self.add_policy({
-            'apiVersion': 'projectcalico.org/v3',
-            'kind': 'GlobalNetworkPolicy',
-            'metadata': {
-                'name': 'port80-ext-%s' % str(forward).lower(),
-             },
-            'spec': {
-                'order': order,
-                'ingress': [],
-                'egress': [
-                    {
-                        'protocol': 'TCP',
-                        'destination': {
-                            'ports': [80],
-                            'nets': [self.ext_server_ip + "/32"],
-                        },
-                        'action': action
-                    },
-                ],
-                'selector': 'nodeEth == "gateway-ext"',
-                'applyOnForward': forward
+        self.add_policy(
+            {
+                'apiVersion': 'projectcalico.org/v3',
+                'kind': 'GlobalNetworkPolicy',
+                'metadata': {'name': f'port80-ext-{str(forward).lower()}'},
+                'spec': {
+                    'order': order,
+                    'ingress': [],
+                    'egress': [
+                        {
+                            'protocol': 'TCP',
+                            'destination': {
+                                'ports': [80],
+                                'nets': [f"{self.ext_server_ip}/32"],
+                            },
+                            'action': action,
+                        }
+                    ],
+                    'selector': 'nodeEth == "gateway-ext"',
+                    'applyOnForward': forward,
+                },
             }
-        })
+        )
 
     def add_policy(self, policy_data):
         self.gateway._apply_resources(policy_data)
@@ -720,63 +723,59 @@ class TestFelixOnGateway(TestBase):
         host_endpoint_data = {
             'apiVersion': 'projectcalico.org/v3',
             'kind': 'HostEndpoint',
-            'metadata': {
-                'name': 'gw-int',
-                'labels': {'nodeEth': 'gateway-int'}
-            },
-            'spec': {
-                'node': '%s' % self.gateway_hostname,
-                'interfaceName': 'eth0'
-            }
+            'metadata': {'name': 'gw-int', 'labels': {'nodeEth': 'gateway-int'}},
+            'spec': {'node': f'{self.gateway_hostname}', 'interfaceName': 'eth0'},
         }
+
         self.gateway._apply_resources(host_endpoint_data)
 
     def add_gateway_external_iface(self):
         host_endpoint_data = {
             'apiVersion': 'projectcalico.org/v3',
             'kind': 'HostEndpoint',
-            'metadata': {
-                'name': 'gw-ext',
-                'labels': {'nodeEth': 'gateway-ext'}
-            },
-            'spec': {
-                'node': '%s' % self.gateway_hostname,
-                'interfaceName': 'eth1'
-            }
+            'metadata': {'name': 'gw-ext', 'labels': {'nodeEth': 'gateway-ext'}},
+            'spec': {'node': f'{self.gateway_hostname}', 'interfaceName': 'eth1'},
         }
+
         self.gateway._apply_resources(host_endpoint_data)
 
     def add_host_iface(self):
         host_endpoint_data = {
             'apiVersion': 'projectcalico.org/v3',
             'kind': 'HostEndpoint',
-            'metadata': {
-                'name': 'host-int',
-                'labels': {'nodeEth': 'host'}
-            },
+            'metadata': {'name': 'host-int', 'labels': {'nodeEth': 'host'}},
             'spec': {
-                'node': '%s' % self.host_hostname,
+                'node': f'{self.host_hostname}',
                 'interfaceName': 'eth0',
                 'expectedIPs': [str(self.host.ip)],
-            }
+            },
         }
+
         self.gateway._apply_resources(host_endpoint_data)
 
     def assert_host_can_curl_local(self):
         try:
-            self.host.execute("curl --fail -m 1 -o /tmp/local-index.html %s" % self.gateway_int_ip)
+            self.host.execute(
+                f"curl --fail -m 1 -o /tmp/local-index.html {self.gateway_int_ip}"
+            )
+
         except subprocess.CalledProcessError:
             _log.exception("Internal host failed to curl gateway internal IP: %s",
                            self.gateway_int_ip)
-            self.fail("Internal host failed to curl gateway internal IP: %s" % self.gateway_int_ip)
+            self.fail(
+                f"Internal host failed to curl gateway internal IP: {self.gateway_int_ip}"
+            )
 
     def assert_host_can_not_curl_local(self):
         try:
-            self.host.execute("curl --fail -m 1 -o /tmp/local-index.html %s" % self.gateway_int_ip)
+            self.host.execute(
+                f"curl --fail -m 1 -o /tmp/local-index.html {self.gateway_int_ip}"
+            )
+
         except subprocess.CalledProcessError:
             return
         else:
-            self.fail("Internal host can curl gateway internal IP: %s" % self.gateway_int_ip)
+            self.fail(f"Internal host can curl gateway internal IP: {self.gateway_int_ip}")
 
     def assert_hostwl_can_access_workload(self):
         if self.host_workload.check_can_tcp(self.gateway_workload.ip, 1):
@@ -784,8 +783,8 @@ class TestFelixOnGateway(TestBase):
         _log.exception("Internal host workload failed to access gateway internal workload IP: %s",
                        self.gateway_workload.ip)
         self.fail(
-            "Internal host workload failed to access gateway internal workload IP: %s" %
-            self.gateway_workload.ip)
+            f"Internal host workload failed to access gateway internal workload IP: {self.gateway_workload.ip}"
+        )
 
     def assert_hostwl_can_not_access_workload(self):
         if self.host_workload.check_cant_tcp(self.gateway_workload.ip, 1):
@@ -793,58 +792,80 @@ class TestFelixOnGateway(TestBase):
         _log.exception("Internal host workload can access gateway internal workload IP: %s",
                        self.gateway_workload.ip)
         self.fail(
-            "Internal host workload can access gateway internal workload IP: %s" %
-            self.gateway_workload.ip)
+            f"Internal host workload can access gateway internal workload IP: {self.gateway_workload.ip}"
+        )
 
     def assert_workload_can_curl_ext(self):
         try:
-            self.gateway_workload.execute("wget -q -T 1 %s -O /dev/null" % self.ext_server_ip)
+            self.gateway_workload.execute(
+                f"wget -q -T 1 {self.ext_server_ip} -O /dev/null"
+            )
+
         except subprocess.CalledProcessError:
             _log.exception("Gateway workload failed to curl external server IP: %s",
                            self.ext_server_ip)
-            self.fail("Gateway workload failed to curl external server IP: %s" % self.ext_server_ip)
+            self.fail(
+                f"Gateway workload failed to curl external server IP: {self.ext_server_ip}"
+            )
 
     def assert_workload_can_not_curl_ext(self):
         try:
-            self.gateway_workload.execute("wget -q -T 1 %s -O /dev/null" % self.ext_server_ip)
+            self.gateway_workload.execute(
+                f"wget -q -T 1 {self.ext_server_ip} -O /dev/null"
+            )
+
         except subprocess.CalledProcessError:
             return
         else:
-            self.fail("Gateway workload can curl external server IP: %s" % self.ext_server_ip)
+            self.fail(
+                f"Gateway workload can curl external server IP: {self.ext_server_ip}"
+            )
 
     def assert_gateway_can_curl_ext(self):
         try:
             self.gateway.execute(
-                "curl --fail -m 1 -o /tmp/nginx-index.html %s" % self.ext_server_ip)
+                f"curl --fail -m 1 -o /tmp/nginx-index.html {self.ext_server_ip}"
+            )
+
         except subprocess.CalledProcessError:
             _log.exception("Gateway failed to curl external server IP: %s",
                            self.ext_server_ip)
-            self.fail("Gateway failed to curl external server IP: %s" % self.ext_server_ip)
+            self.fail(f"Gateway failed to curl external server IP: {self.ext_server_ip}")
 
     def assert_gateway_can_not_curl_ext(self):
         try:
             self.gateway.execute(
-                "curl --fail -m 1 -o /tmp/nginx-index.html %s" % self.ext_server_ip)
+                f"curl --fail -m 1 -o /tmp/nginx-index.html {self.ext_server_ip}"
+            )
+
         except subprocess.CalledProcessError:
             return
         else:
-            self.fail("Gateway can curl external server IP: %s" % self.ext_server_ip)
+            self.fail(f"Gateway can curl external server IP: {self.ext_server_ip}")
 
     def assert_host_can_curl_ext(self):
         try:
-            self.host.execute("curl --fail -m 1 -o /tmp/nginx-index.html %s" % self.ext_server_ip)
+            self.host.execute(
+                f"curl --fail -m 1 -o /tmp/nginx-index.html {self.ext_server_ip}"
+            )
+
         except subprocess.CalledProcessError:
             _log.exception("Internal host failed to curl external server IP: %s",
                            self.ext_server_ip)
-            self.fail("Internal host failed to curl external server IP: %s" % self.ext_server_ip)
+            self.fail(
+                f"Internal host failed to curl external server IP: {self.ext_server_ip}"
+            )
 
     def assert_host_can_not_curl_ext(self):
         try:
-            self.host.execute("curl --fail -m 1 -o /tmp/nginx-index.html %s" % self.ext_server_ip)
+            self.host.execute(
+                f"curl --fail -m 1 -o /tmp/nginx-index.html {self.ext_server_ip}"
+            )
+
         except subprocess.CalledProcessError:
             return
         else:
-            self.fail("Internal host can curl external server IP: %s" % self.ext_server_ip)
+            self.fail(f"Internal host can curl external server IP: {self.ext_server_ip}")
 
     def remove_pol_and_endpoints(self):
         self.delete_all("globalnetworkpolicy")

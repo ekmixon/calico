@@ -11,18 +11,18 @@ DOCS_PATH = (
     else os.environ.get("CALICO_DOCS_PATH")
 )
 
-with open("%s/_data/versions.yml" % DOCS_PATH) as f:
+with open(f"{DOCS_PATH}/_data/versions.yml") as f:
     versions = yaml.safe_load(f)
     RELEASE_VERSION = versions[0]["title"]
-    print("[INFO] using _data/versions.yaml, discovered version: %s" % RELEASE_VERSION)
+    print(
+        f"[INFO] using _data/versions.yaml, discovered version: {RELEASE_VERSION}"
+    )
+
 
 # Helm version is the calico/node version.
 version = versions[0]["components"]["calico/node"]["version"]
-print("[INFO] using calico/node version for Helm artifacts: %s" % version)
-chart_url = (
-    "https://github.com/projectcalico/calico/releases/download/%s/tigera-operator-%s.tgz"
-    % (version, version)
-)
+print(f"[INFO] using calico/node version for Helm artifacts: {version}")
+chart_url = f"https://github.com/projectcalico/calico/releases/download/{version}/tigera-operator-{version}.tgz"
 
 
 def test_calico_release_has_helm_chart():

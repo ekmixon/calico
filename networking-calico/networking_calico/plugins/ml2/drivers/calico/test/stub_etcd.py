@@ -52,18 +52,14 @@ class Client(object):
         assert metadata, "Always expect get() call with metadata=True"
         try:
             result = self.read(key)
-            mod_revision = 10
-            if result.etcd_index != 0:
-                mod_revision = result.etcd_index
+            mod_revision = result.etcd_index if result.etcd_index != 0 else 10
             return [(result.value, {'mod_revision': str(mod_revision)})]
         except etcdv3.KeyNotFound:
             return []
 
     def watch_once(self, key, timeout=None, **kwargs):
         result = self.read(key)
-        mod_revision = 10
-        if result.etcd_index != 0:
-            mod_revision = result.etcd_index
+        mod_revision = result.etcd_index if result.etcd_index != 0 else 10
         return {'kv': {
             'value': result.value,
             'mod_revision': mod_revision
@@ -78,7 +74,7 @@ class Client(object):
             eventlet.with_timeout(5, self.stop.wait)
             raise NoMoreResults()
         if result.op != READ:
-            self.failure = "Unexpected result type for read(): %s" % result.op
+            self.failure = f"Unexpected result type for read(): {result.op}"
             raise UnexpectedResultType()
         if result.exception is not None:
             log.debug("Raise read exception %s",
@@ -112,7 +108,7 @@ class Client(object):
             eventlet.with_timeout(5, self.stop.wait)
             raise NoMoreResults()
         if result.op != WRITE:
-            self.failure = "Unexpected result type for write(): %s" % result.op
+            self.failure = f"Unexpected result type for write(): {result.op}"
             raise UnexpectedResultType()
         if result.exception is not None:
             log.debug("Raise write exception %s", result.exception)

@@ -81,13 +81,16 @@ class TestDefaultPools(TestBase):
         """
         _log.debug("Test description: %s", description)
         # Get command line for starting docker
-        output = self.host.calicoctl("node run --dryrun --node-image=%s" % NODE_CONTAINER_NAME)
+        output = self.host.calicoctl(
+            f"node run --dryrun --node-image={NODE_CONTAINER_NAME}"
+        )
+
         base_command = output.split('\n')[-4].rstrip()
 
         # Modify command line to add the options we want to test
-        env_inserts = "-e %s=%s " % (param, value)
+        env_inserts = f"-e {param}={value} "
         if ipip is not None:
-            env_inserts += "-e CALICO_IPV4POOL_IPIP=%s " % ipip
+            env_inserts += f"-e CALICO_IPV4POOL_IPIP={ipip} "
         prefix, _, suffix = base_command.partition("-e")
         command = prefix + env_inserts + "-e" + suffix
 
@@ -113,8 +116,10 @@ class TestDefaultPools(TestBase):
         self.host.calicoctl("get ippool -o json > testfile.json")
         self.host.calicoctl("apply -f testfile.json")
 
-        assert len(pools_dict) == exp_num_pools, \
-            "Expected %s pools, found %s. %s" % (exp_num_pools, len(pools_dict), pools_dict)
+        assert (
+            len(pools_dict) == exp_num_pools
+        ), f"Expected {exp_num_pools} pools, found {len(pools_dict)}. {pools_dict}"
+
 
         # Grab the pool of interest
         pool = pools_dict[cidrs.index(value)]
@@ -126,21 +131,24 @@ class TestDefaultPools(TestBase):
         # Check IPIP setting if we're doing IPv4
         if ipip in ["CrossSubnet", "Always", "Never"] and param == "CALICO_IPV4POOL_CIDR":
             assert pool['spec']['ipipMode'] == ipip, \
-                "Didn't find ipip mode in pool %s" % pool
+                    "Didn't find ipip mode in pool %s" % pool
         if ipip in [None] or param == "CALICO_IPV6POOL_CIDR":
             assert pool['spec']['ipipMode'] == "Never", \
-                "Didn't find ipip mode in pool %s" % pool
+                    "Didn't find ipip mode in pool %s" % pool
         if ipip in ["CrossSubnet", "Always", "Never"] and param == "CALICO_IPV6POOL_CIDR":
             assert other_pool['spec']['ipipMode'] == ipip, \
-                "Didn't find ipip mode in pool %s" % pool
+                    "Didn't find ipip mode in pool %s" % pool
 
         # Check NAT setting
         if 'natOutgoing' in pool['spec']:
-          assert pool['spec']['natOutgoing'] is nat_outgoing, \
-            "Wrong NAT default in pool %s, expected natOutgoing to be %s" % (pool, nat_outgoing)
+            assert (
+                pool['spec']['natOutgoing'] is nat_outgoing
+            ), f"Wrong NAT default in pool {pool}, expected natOutgoing to be {nat_outgoing}"
+
         else:
-          assert nat_outgoing is False, \
-            "Wrong NAT default in pool %s, expecting natOutgoing to be disabled" % pool
+            assert (
+                nat_outgoing is False
+            ), f"Wrong NAT default in pool {pool}, expecting natOutgoing to be disabled"
 
     def test_no_default_pools(self):
         """
@@ -153,7 +161,7 @@ class TestDefaultPools(TestBase):
         # check the expected pool is present
         pools_output = self.host.calicoctl("get ippool -o yaml")
         pools_dict = yaml.safe_load(pools_output)['items']
-        assert pools_dict == [], "Pools not empty: %s" % pools_dict
+        assert pools_dict == [], f"Pools not empty: {pools_dict}"
 
     def assert_calico_node_log_contains(self, expected_string):
         assert expected_string in self.host.execute("docker logs calico-node"), \

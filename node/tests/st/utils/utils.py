@@ -74,8 +74,7 @@ def get_ip(v6=False):
         except BaseException:
             # Failed to connect, just try to get the address from the interfaces
             version = 6 if v6 else 4
-            ips = get_host_ips(version)
-            if ips:
+            if ips := get_host_ips(version):
                 ip = str(ips[0])
     else:
         logger.debug("Got local IP from %s=%s", env, ip)
@@ -210,18 +209,13 @@ def check_bird_status(host, expected):
             # Find the entry matching this peer.
             if columns[1] == ipaddr and columns[2] == peertype:
 
-                # Check that the connection state is as expected.  We check
-                # that the state starts with the expected value since there
-                # may be additional diagnostic information included in the
-                # info field.
                 if any(columns[5].startswith(s) for s in state):
                     break
-                else:
-                    msg = "Error in BIRD status for peer %s:\n" \
-                          "Expected: %s; Actual: %s\n" \
-                          "Output:\n%s" % (ipaddr, state, columns[5],
-                                           output)
-                    raise AssertionError(msg)
+                msg = "Error in BIRD status for peer %s:\n" \
+                      "Expected: %s; Actual: %s\n" \
+                      "Output:\n%s" % (ipaddr, state, columns[5],
+                                       output)
+                raise AssertionError(msg)
         else:
             msg = "Error in BIRD status for peer %s:\n" \
                   "Type: %s\n" \
@@ -282,10 +276,9 @@ def assert_number_endpoints(host, expected):
     hostname = host.get_hostname()
     out = host.calicoctl("get workloadEndpoint -o yaml")
     output = yaml.safe_load(out)
-    actual = 0
-    for endpoint in output['items']:
-        if endpoint['spec']['node'] == hostname:
-            actual += 1
+    actual = sum(
+        endpoint['spec']['node'] == hostname for endpoint in output['items']
+    )
 
     if int(actual) != int(expected):
         raise AssertionError(
@@ -306,14 +299,13 @@ def assert_profile(host, profile_name):
     """
     out = host.calicoctl("get -o yaml profile")
     output = yaml.safe_load(out)
-    found = False
-    for profile in output['items']:
-        if profile['metadata']['name'] == profile_name:
-            found = True
-            break
+    found = any(
+        profile['metadata']['name'] == profile_name
+        for profile in output['items']
+    )
 
     if not found:
-        raise AssertionError("Profile %s not found in Calico" % profile_name)
+        raise AssertionError(f"Profile {profile_name} not found in Calico")
 
 
 def get_profile_name(host, network):
@@ -326,7 +318,7 @@ def get_profile_name(host, network):
     :param network: Network object
     :return: String: profile name
     """
-    info_raw = host.execute("docker network inspect %s" % network.name)
+    info_raw = host.execute(f"docker network inspect {network.name}")
     info = json.loads(info_raw)
 
     # Network inspect returns a list of dicts for each network being inspected.
@@ -370,10 +362,11 @@ def get_host_ips(version=4, exclude=None):
         # Ignore the interface if it is explicitly excluded
         if match and not any(re.match(regex, iface) for regex in exclude):
             # Iterate through Addresses on interface.
-            for address in ip_re.findall(iface_block):
-                # Append non-loopback addresses.
-                if not IPNetwork(address).ip.is_loopback():
-                    ip_addrs.append(IPAddress(address))
+            ip_addrs.extend(
+                IPAddress(address)
+                for address in ip_re.findall(iface_block)
+                if not IPNetwork(address).ip.is_loopback()
+            )
 
     return ip_addrs
 
@@ -397,9 +390,10 @@ def curl_etcd(path, options=None, recursive=True, ip=None):
             shell=True)
     else:
         rc = check_output(
-            "curl -sL http://%s:2379/v2/keys/%s?recursive=%s %s"
-            % (ip, path, str(recursive).lower(), " ".join(options)),
-            shell=True)
+            f'curl -sL http://{ip}:2379/v2/keys/{path}?recursive={str(recursive).lower()} {" ".join(options)}',
+            shell=True,
+        )
+
 
     return json.loads(rc.strip())
 
@@ -422,9 +416,18 @@ def wipe_etcd(ip):
                     "ETCDCTL_CERT=/etc/calico/certs/client.pem " +
                     "ETCDCTL_KEY=/etc/calico/certs/client-key.pem ")
 
-    check_output("docker exec " + etcd_container_name + " sh -c '" + tls_vars +
-                 "ETCDCTL_API=3 etcdctl del --prefix /calico" +
-                 "'", shell=True)
+    check_output(
+        (
+            (
+                f"docker exec {etcd_container_name}"
+                + " sh -c '"
+                + tls_vars
+                + "ETCDCTL_API=3 etcdctl del --prefix /calico"
+            )
+            + "'"
+        ),
+        shell=True,
+    )
 
 
 on_failure_fns = []
@@ -472,6 +475,14 @@ def dump_etcdv3():
                     "ETCDCTL_CERT=/etc/calico/certs/client.pem " +
                     "ETCDCTL_KEY=/etc/calico/certs/client-key.pem ")
 
-    log_and_run("docker exec " + etcd_container_name + " sh -c '" + tls_vars +
-                 "ETCDCTL_API=3 etcdctl get --prefix /calico" +
-                 "'")
+    log_and_run(
+        (
+            (
+                f"docker exec {etcd_container_name}"
+                + " sh -c '"
+                + tls_vars
+                + "ETCDCTL_API=3 etcdctl get --prefix /calico"
+            )
+            + "'"
+        )
+    )

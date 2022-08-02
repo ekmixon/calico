@@ -59,13 +59,13 @@ class PathDispatcher(object):
         parts = path.strip("/").split("/")
         node = self.handler_root
         for part in parts:
-            m = re.match(r'<(.*)>', part)
-            if m:
-                capture_name = m.group(1)
+            if m := re.match(r'<(.*)>', part):
+                capture_name = m[1]
                 name, node = node.setdefault("capture", (capture_name, {}))
-                assert name == capture_name, (
-                    "Conflicting capture name %s vs %s" % (name, capture_name)
-                )
+                assert (
+                    name == capture_name
+                ), f"Conflicting capture name {name} vs {capture_name}"
+
             else:
                 node = node.setdefault(part, {})
         if on_set:
@@ -401,16 +401,12 @@ def intern_dict(d):
     :param dict[StringTypes,...] d: Input dict.
     :return: new dict with interned keys/values.
     """
-    fields_to_intern = set([
-        # Endpoint dicts.  It doesn't seem worth interning items like the MAC
-        # address or TAP name, which are rarely (if ever) shared.
+    fields_to_intern = {
         "profile_id",
         "profile_ids",
         "state",
         "ipv4_gateway",
         "ipv6_gateway",
-
-        # Rules dicts.
         "protocol",
         "!protocol",
         "src_tag",
@@ -418,7 +414,8 @@ def intern_dict(d):
         "dst_tag",
         "!dst_tag",
         "action",
-    ])
+    }
+
     out = {}
     for k, v in d.items():
         k = intern_string(k)

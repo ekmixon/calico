@@ -100,7 +100,7 @@ class TestBase(TestCase):
         for pod in pods.items:
             logger.info("%s\t%s\t%s", pod.metadata.name, pod.metadata.namespace, pod.status.phase)
             if pod.status.phase != 'Running':
-                kubectl("describe po %s -n %s" % (pod.metadata.name, pod.metadata.namespace))
+                kubectl(f"describe po {pod.metadata.name} -n {pod.metadata.namespace}")
             assert pod.status.phase == 'Running'
 
     def create_namespace(self, ns_name):
@@ -157,9 +157,9 @@ class TestBase(TestCase):
         """
         Waits for the given deployment to have the desired number of replicas.
         """
-        logger.info("Checking status for deployment %s/%s" % (ns, name))
-        kubectl("-n %s rollout status deployment/%s" % (ns, name))
-        kubectl("get pods -n %s -o wide" % ns)
+        logger.info(f"Checking status for deployment {ns}/{name}")
+        kubectl(f"-n {ns} rollout status deployment/{name}")
+        kubectl(f"get pods -n {ns} -o wide")
 
     def create_service(self, name, app, ns, port, svc_type="NodePort", traffic_policy="Local", cluster_ip=None, ipv6=False):
         service = client.V1Service(
@@ -186,19 +186,19 @@ class TestBase(TestCase):
         logger.debug("Additional Service created. status='%s'" % str(api_response.status))
 
     def wait_until_exists(self, name, resource_type, ns="default"):
-        retry_until_success(kubectl, function_args=["get %s %s -n%s" %
-                                                    (resource_type, name, ns)])
+        retry_until_success(
+            kubectl, function_args=[f"get {resource_type} {name} -n{ns}"]
+        )
 
     def delete_and_confirm(self, name, resource_type, ns="default"):
         try:
-            kubectl("delete %s %s -n%s" % (resource_type, name, ns))
+            kubectl(f"delete {resource_type} {name} -n{ns}")
         except subprocess.CalledProcessError:
             pass
 
         def is_it_gone_yet(res_name, res_type):
             try:
-                kubectl("get %s %s -n%s" % (res_type, res_name, ns),
-                        logerr=False)
+                kubectl(f"get {res_type} {res_name} -n{ns}", logerr=False)
                 raise self.StillThere
             except subprocess.CalledProcessError:
                 # Success
@@ -220,10 +220,7 @@ class TestBase(TestCase):
             if container.name == ds:
                 for k, v in env_vars.items():
                     logger.info("Set %s=%s", k, v)
-                    env_present = False
-                    for env in container.env:
-                        if env.name == k:
-                            env_present = True
+                    env_present = any(env.name == k for env in container.env)
                     if not env_present:
                         v1_ev = client.V1EnvVar(name=k, value=v, value_from=None)
                         container.env.append(v1_ev)
@@ -240,8 +237,9 @@ class TestBase(TestCase):
                 break
 
     def scale_deployment(self, deployment, ns, replicas):
-        return kubectl("scale deployment %s -n %s --replicas %s" %
-                       (deployment, ns, replicas)).strip()
+        return kubectl(
+            f"scale deployment {deployment} -n {ns} --replicas {replicas}"
+        ).strip()
 
 
 class TestBaseV6(TestBase):

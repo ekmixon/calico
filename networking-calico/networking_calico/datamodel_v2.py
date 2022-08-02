@@ -45,7 +45,7 @@ REGION_PREFIX = "region-"
 # Port status is at /calico/felix/v2/<region_string>//host/<hostname>/
 #                    workload/openstack/<workload>/endpoint/<endpoint>.
 def felix_status_dir(region_string=NO_REGION):
-    return "/calico/felix/v2/%s/host" % region_string
+    return f"/calico/felix/v2/{region_string}/host"
 
 
 # Regex to match endpoints, captures "hostname" and "endpoint_id".
@@ -57,24 +57,26 @@ def get_endpoint_id_from_key(region_string, key):
     global _cached_endpoint_key_re
     if _cached_endpoint_key_re is None:
         _cached_endpoint_key_re = re.compile(
-            r'^(?:' + felix_status_dir(region_string) + r')'
-            r'/(?P<hostname>[^/]+)/'
-            r'workload/'
-            r'(?P<orchestrator>[^/]+)/'
-            r'(?P<workload_id>[^/]+)/'
-            r'endpoint/(?P<endpoint_id>[^/]+)')
-    m = _cached_endpoint_key_re.match(key)
-    if m:
+            (
+                f'^(?:{felix_status_dir(region_string)}' + r')'
+                r'/(?P<hostname>[^/]+)/'
+                r'workload/'
+                r'(?P<orchestrator>[^/]+)/'
+                r'(?P<workload_id>[^/]+)/'
+                r'endpoint/(?P<endpoint_id>[^/]+)'
+            )
+        )
+
+    if m := _cached_endpoint_key_re.match(key):
         # Got an endpoint.
         host = m.group("hostname")
         orch = m.group("orchestrator")
         workload_id = m.group("workload_id")
         endpoint_id = m.group("endpoint_id")
-        combined_id = datamodel_v1.WloadEndpointId(host,
-                                                   orch,
-                                                   workload_id,
-                                                   endpoint_id)
-        return combined_id
+        return datamodel_v1.WloadEndpointId(
+            host, orch, workload_id, endpoint_id
+        )
+
     else:
         return None
 
@@ -86,13 +88,13 @@ def _reset_globals():
 
 # Region-aware subnet path.
 def subnet_dir(region_string=NO_REGION):
-    return "/calico/dhcp/v2/%s/subnet" % region_string
+    return f"/calico/dhcp/v2/{region_string}/subnet"
 
 
 def key_for_subnet(subnet_id, region_string):
-    return subnet_dir(region_string) + "/%s" % subnet_id
+    return subnet_dir(region_string) + f"/{subnet_id}"
 
 
 # Key used for leader election by Neutron mechanism drivers.
 def neutron_election_key(region_string):
-    return "/calico/openstack/v2/%s/neutron_election" % region_string
+    return f"/calico/openstack/v2/{region_string}/neutron_election"

@@ -139,9 +139,9 @@ class _TestEtcdBase(lib.Lib, unittest.TestCase):
         if kwargs.get('recursive', False):
             keylen = len(key) + 1
             for k in self.etcd_data.keys():
-                if k == key or k[:keylen] == key + '/':
+                if k == key or k[:keylen] == f'{key}/':
                     del self.etcd_data[k]
-            self.recent_deletes.add(key + '(recursive)')
+            self.recent_deletes.add(f'{key}(recursive)')
         else:
             try:
                 del self.etcd_data[key]
@@ -176,8 +176,7 @@ class _TestEtcdBase(lib.Lib, unittest.TestCase):
             decoded_end = _decode(range_end).decode()
             _log.info("Ranged get %s...%s", key, decoded_end)
             assert revision is not None
-            keys = list(self.etcd_data.keys())
-            keys.sort()
+            keys = sorted(self.etcd_data.keys())
             if sort_order == "descend":
                 keys.reverse()
             result = []
@@ -235,16 +234,12 @@ class _TestEtcdBase(lib.Lib, unittest.TestCase):
             _log.info("etcd3 txn compare = %r", txc)
             if txc['target'] == 'VERSION' and txc['version'] == 0:
                 key = _decode(txc['key']).decode()
-                if txc['result'] == 'EQUAL':
-                    # Transaction requires that the etcd entry does not already exist.
-                    if key in self.etcd_data:
-                        _log.error("etcd3 txn MUST_CREATE failed")
-                        return {'succeeded': False}
-                if txc['result'] == 'NOT_EQUAL':
-                    # Transaction requires that the etcd entry does already exist.
-                    if key not in self.etcd_data:
-                        _log.error("etcd3 txn MUST_UPDATE failed")
-                        return {'succeeded': False}
+                if txc['result'] == 'EQUAL' and key in self.etcd_data:
+                    _log.error("etcd3 txn MUST_CREATE failed")
+                    return {'succeeded': False}
+                if txc['result'] == 'NOT_EQUAL' and key not in self.etcd_data:
+                    _log.error("etcd3 txn MUST_UPDATE failed")
+                    return {'succeeded': False}
         if 'request_put' in txn['success'][0]:
             put_request = txn['success'][0]['request_put']
             succeeded = self.etcd3gw_client_put(
@@ -268,7 +263,7 @@ class _TestEtcdBase(lib.Lib, unittest.TestCase):
 
         self.etcd_data[datamodel_v2.felix_status_dir() +
                        "/vm1/status"] = \
-            json.dumps({
+                json.dumps({
                 "time": "2015-08-14T10:37:54"
             })
 
@@ -296,13 +291,13 @@ class _TestEtcdBase(lib.Lib, unittest.TestCase):
             read_result.leaves = []
             keylen = len(key) + 1
             for k in self.etcd_data.keys():
-                if k[:keylen] == key + '/':
+                if k[:keylen] == f'{key}/':
                     child = mock.Mock()
                     child.key = k
                     child.value = self.etcd_data[k]
                     read_result.children.append(child)
                     read_result.leaves.append(child)
-            if read_result.value is None and read_result.children == []:
+            if read_result.value is None and not read_result.children:
                 raise lib.EtcdKeyNotFound(self.etcd_data)
             # Actual direct children of the dir in etcd response.
             # Needed for status_dir, where children are dirs and
@@ -518,10 +513,10 @@ class TestPluginEtcdBase(_TestEtcdBase):
         context = self.make_context()
         context._port = lib.port1
         context._plugin_context.session.query.return_value.filter_by.\
-            side_effect = self.port_query
+                side_effect = self.port_query
         self.driver.delete_port_postcommit(context)
         self.assertEtcdWrites({})
-        self.assertEtcdDeletes(set([ep_deadbeef_key_v3]))
+        self.assertEtcdDeletes({ep_deadbeef_key_v3})
 
         # Now process an update for the same port and check that it doesn't cause the etcd
         # resource to be recreated.  This simulates an update and delete racing with each
@@ -555,14 +550,14 @@ class TestPluginEtcdBase(_TestEtcdBase):
         self.osdb_ports[0]['binding:host_id'] = 'new-host'
         self.driver.update_port_postcommit(context)
 
-        self.assertEtcdDeletes(set([ep_deadbeef_key_v3]))
+        self.assertEtcdDeletes({ep_deadbeef_key_v3})
         ep_deadbeef_key_v3 = ep_deadbeef_key_v3.replace('felix--host--1',
                                                         'new--host')
         ep_deadbeef_value_v3['metadata']['name'] = \
-            ep_deadbeef_value_v3['metadata']['name'].replace('felix--host--1',
+                ep_deadbeef_value_v3['metadata']['name'].replace('felix--host--1',
                                                              'new--host')
         ep_deadbeef_value_v3['spec']['node'] = \
-            ep_deadbeef_value_v3['spec']['node'].replace('felix-host-1',
+                ep_deadbeef_value_v3['spec']['node'].replace('felix-host-1',
                                                          'new-host')
         self.assertEtcdWrites({
             ep_deadbeef_key_v3: ep_deadbeef_value_v3,
@@ -577,14 +572,14 @@ class TestPluginEtcdBase(_TestEtcdBase):
         self.osdb_ports[0]['binding:host_id'] = 'felix-host-1'
         self.simulated_time_advance(mech_calico.RESYNC_INTERVAL_SECS)
 
-        self.assertEtcdDeletes(set([ep_deadbeef_key_v3]))
+        self.assertEtcdDeletes({ep_deadbeef_key_v3})
         ep_deadbeef_key_v3 = ep_deadbeef_key_v3.replace('new--host',
                                                         'felix--host--1')
         ep_deadbeef_value_v3['metadata']['name'] = \
-            ep_deadbeef_value_v3['metadata']['name'].replace('new--host',
+                ep_deadbeef_value_v3['metadata']['name'].replace('new--host',
                                                              'felix--host--1')
         ep_deadbeef_value_v3['spec']['node'] = \
-            ep_deadbeef_value_v3['spec']['node'].replace('new-host',
+                ep_deadbeef_value_v3['spec']['node'].replace('new-host',
                                                          'felix-host-1')
         self.assertEtcdWrites({
             ep_deadbeef_key_v3: ep_deadbeef_value_v3,
@@ -844,10 +839,7 @@ class TestPluginEtcdBase(_TestEtcdBase):
         _log.info("Resync with existing etcd data")
         self.simulated_time_advance(mech_calico.RESYNC_INTERVAL_SECS)
         self.assertEtcdWrites({})
-        self.assertEtcdDeletes(set([
-            ep_deadbeef_key_v3,
-            ep_facebeef_key_v3,
-        ]))
+        self.assertEtcdDeletes({ep_deadbeef_key_v3, ep_facebeef_key_v3})
 
         # Change a small amount of information about the port and the security
         # group. Expect a resync to fix it up.
@@ -980,9 +972,7 @@ class TestPluginEtcd(TestPluginEtcdBase):
         self.assertEtcdWrites(expected_writes)
 
         # Check that the legacy data has been cleaned up.
-        self.assertEtcdDeletes(set([
-            '/calico/dhcp/v1/subnet/subnet-id-10.65.0--24',
-        ]))
+        self.assertEtcdDeletes({'/calico/dhcp/v1/subnet/subnet-id-10.65.0--24'})
 
         # Define two subnets.
         subnet1 = {'network_id': 'net-id-1',
@@ -1033,9 +1023,10 @@ class TestPluginEtcd(TestPluginEtcdBase):
         subnet1['enable_dhcp'] = False
         context.current = subnet1
         self.driver.update_subnet_postcommit(context)
-        self.assertEtcdDeletes(set([
-            '/calico/dhcp/v2/no-region/subnet/subnet-id-10.65.0--24'
-        ]))
+        self.assertEtcdDeletes(
+            {'/calico/dhcp/v2/no-region/subnet/subnet-id-10.65.0--24'}
+        )
+
 
         # Update subnet2 to be DHCP-enabled.
         subnet2['enable_dhcp'] = True
@@ -1085,9 +1076,10 @@ class TestPluginEtcd(TestPluginEtcdBase):
                 'host_routes': [{'destination': '11.11.0.0/16',
                                  'nexthop': '10.65.0.1'}]}
         })
-        self.assertEtcdDeletes(set([
-            '/calico/dhcp/v2/no-region/subnet/subnet-id-10.28.0--24'
-        ]))
+        self.assertEtcdDeletes(
+            {'/calico/dhcp/v2/no-region/subnet/subnet-id-10.28.0--24'}
+        )
+
 
         # Do a resync where we simulate having missed a dynamic update that
         # changed a Calico-relevant property of a DHCP-enabled subnet.
@@ -1113,9 +1105,9 @@ class TestPluginEtcd(TestPluginEtcdBase):
         # Delete subnet1.
         context.current = subnet1
         self.driver.delete_subnet_postcommit(context)
-        self.assertEtcdDeletes(set([
-            '/calico/dhcp/v2/no-region/subnet/subnet-id-10.65.0--24'
-        ]))
+        self.assertEtcdDeletes(
+            {'/calico/dhcp/v2/no-region/subnet/subnet-id-10.65.0--24'}
+        )
 
     def test_check_segment_for_agent(self):
         """Test the mechanism driver's check_segment_for_agent entry point."""
@@ -1312,10 +1304,12 @@ class TestPluginEtcd(TestPluginEtcdBase):
 
         # We should clean up the old 'ossg.default.' policy, but not the
         # customer one.
-        self.assertEtcdDeletes(set([
-            '/calico/resources/v3/projectcalico.org/networkpolicies/' +
-            'openstack/ossg.default.SOME_OLD_SG'
-        ]))
+        self.assertEtcdDeletes(
+            {
+                '/calico/resources/v3/projectcalico.org/networkpolicies/'
+                + 'openstack/ossg.default.SOME_OLD_SG'
+            }
+        )
 
     def test_old_openstack_data(self):
         """Startup with existing but old OpenStack profile data."""
@@ -1364,10 +1358,12 @@ class TestPluginEtcd(TestPluginEtcdBase):
             '/calico/resources/v3/projectcalico.org/clusterinformations/' +
             'default']['spec']['clusterGUID'] = 'uuid-old-data'
         self.assertEtcdWrites(expected_writes)
-        self.assertEtcdDeletes(set([
-            '/calico/resources/v3/projectcalico.org/networkpolicies/' +
-            'openstack/ossg.default.OLD',
-        ]))
+        self.assertEtcdDeletes(
+            {
+                '/calico/resources/v3/projectcalico.org/networkpolicies/'
+                + 'openstack/ossg.default.OLD'
+            }
+        )
 
 
 class TestPluginEtcdRegion(TestPluginEtcdBase):
@@ -1424,10 +1420,12 @@ class TestPluginEtcdRegion(TestPluginEtcdBase):
             '/calico/resources/v3/projectcalico.org/clusterinformations/' +
             'default']['spec']['clusterGUID'] = 'uuid-old-data'
         self.assertEtcdWrites(expected_writes)
-        self.assertEtcdDeletes(set([
-            '/calico/resources/v3/projectcalico.org/networkpolicies/' +
-            'openstack/ossg.default.OLD'
-        ]))
+        self.assertEtcdDeletes(
+            {
+                '/calico/resources/v3/projectcalico.org/networkpolicies/'
+                + 'openstack/ossg.default.OLD'
+            }
+        )
 
 
 class TestDriverStatusReporting(lib.Lib, unittest.TestCase):
@@ -1691,8 +1689,7 @@ class TestStatusWatcherBase(_TestEtcdBase):
         self.watcher._on_ep_set(m_port_status_node, "hostname", "wlid", "ep1")
         ep_id = datamodel_v1.WloadEndpointId("hostname", "openstack",
                                              "wlid", "ep1")
-        self.assertEqual({"hostname": set([ep_id])},
-                         self.watcher._endpoints_by_host)
+        self.assertEqual({"hostname": {ep_id}}, self.watcher._endpoints_by_host)
         return m_port_status_node
 
 
@@ -1710,7 +1707,7 @@ class TestStatusWatcher(TestStatusWatcherBase):
 
         felix_status_key = '/calico/felix/v2/no-region/host/hostname/status'
         felix_last_reported_status_key = \
-            '/calico/felix/v2/no-region/host/hostname/last_reported_status'
+                '/calico/felix/v2/no-region/host/hostname/last_reported_status'
         ep_on_that_host_key = (
             '/calico/felix/v2/no-region/host/hostname/workload/' +
             'openstack/wlid/endpoint/ep1')
@@ -1736,8 +1733,7 @@ class TestStatusWatcher(TestStatusWatcherBase):
         watch_events = []
 
         def _iterator():
-            for e in watch_events:
-                yield e
+            yield from watch_events
             _log.info("Stop watcher now")
             self.watcher.stop()
             yield None
@@ -1832,7 +1828,7 @@ class TestStatusWatcher(TestStatusWatcherBase):
     def test_endpoint_status_add_bad_json(self):
         m_port_status_node = mock.Mock()
         m_port_status_node.key = "/calico/felix/v2/no-region/host/hostname/workload/" \
-                                 "openstack/wlid/endpoint/ep1"
+                                     "openstack/wlid/endpoint/ep1"
         m_port_status_node.value = '{"status": "up"'
         self.watcher._on_ep_set(m_port_status_node, "hostname", "wlid", "ep1")
 
@@ -1865,7 +1861,7 @@ class TestStatusWatcher(TestStatusWatcherBase):
         # Put an endpoint in the cache to find later...
         m_response = mock.Mock()
         m_response.key = "/calico/felix/v2/no-region/host/hostname/workload/" \
-                         "openstack/wlid/endpoint/epid"
+                             "openstack/wlid/endpoint/epid"
         m_response.value = '{"status": "up"}'
         self.watcher._on_ep_set(m_response, "hostname", "wlid", "epid")
 
@@ -1910,9 +1906,10 @@ class TestMultiRegionStatusWatcher(TestStatusWatcherBase):
         # Simulate status update for a workload in this region.
         m_port_status_node = mock.Mock()
         m_port_status_node.key = (
-            "/calico/felix/v2/" + self.region_string +
-            "/host/hostname/workload/openstack/wlid/endpoint/ep1"
+            f"/calico/felix/v2/{self.region_string}"
+            + "/host/hostname/workload/openstack/wlid/endpoint/ep1"
         )
+
         m_port_status_node.value = '{"status": "up"}'
         m_port_status_node.action = "set"
         self.watcher.dispatcher.handle_event(m_port_status_node)
@@ -1974,5 +1971,5 @@ def _neutron_rule_from_dict(overrides):
         "port_range_min": None,
         "port_range_max": None,
     }
-    rule.update(overrides)
+    rule |= overrides
     return rule

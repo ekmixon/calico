@@ -40,19 +40,17 @@ class TestSwitchRouteReflector(TestBase):
         https://projectcalico.docs.tigera.io/networking/bgp#change-from-node-to-node-mesh-to-route-reflectors-without-any-traffic-disruption
         """
         with DockerHost('host1',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host1, \
-             DockerHost('host2',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host2, \
-             DockerHost('host3',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host3:
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host1, DockerHost('host2',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host2, DockerHost('host3',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host3:
 
             # Start all hosts using specific backends.
-            host1.start_calico_node("--backend=%s" % backend)
-            host2.start_calico_node("--backend=%s" % backend)
-            host3.start_calico_node("--backend=%s" % backend)
+            host1.start_calico_node(f"--backend={backend}")
+            host2.start_calico_node(f"--backend={backend}")
+            host3.start_calico_node(f"--backend={backend}")
 
             # Create a workload on host1 and host2 in the same network.
             network1 = host1.create_network("subnet1")
@@ -80,7 +78,7 @@ class TestSwitchRouteReflector(TestBase):
                                          {'timeout':60})
 
             # Make host3 act as a route reflector.
-            node3 = host3.calicoctl("get Node %s -o yaml" % host3.get_hostname())
+            node3 = host3.calicoctl(f"get Node {host3.get_hostname()} -o yaml")
             node3cfg = yaml.safe_load(node3)
             logger.info("host3 Node: %s", node3cfg)
             node3cfg['spec']['bgp']['routeReflectorClusterID'] = '224.0.0.3'

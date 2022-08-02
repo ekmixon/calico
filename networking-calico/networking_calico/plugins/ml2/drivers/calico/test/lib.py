@@ -186,7 +186,7 @@ mech_calico.Elector = GrandDukeOfSalzburg
 def mock_projects_list():
     mock_project = mock.Mock()
     mock_project.id = "jane3"
-    mock_project.name = "pname+%s" % mock_project.id
+    mock_project.name = f"pname+{mock_project.id}"
     mock_project.parent_id = "gibson"
     return [mock_project]
 keystone_client = mock.Mock()
@@ -535,11 +535,10 @@ class Lib(object):
     def get_subnets(self, context, filters=None):
         if filters:
             self.assertTrue('id' in filters)
-            matches = [s for s in self.osdb_subnets
-                       if s['id'] in filters['id']]
+            return [s for s in self.osdb_subnets if s['id'] in filters['id']]
+
         else:
-            matches = [s for s in self.osdb_subnets]
-        return matches
+            return list(self.osdb_subnets)
 
     def notify_security_group_update(self, id, rules, port, type):
         """Notify a new or changed security group definition."""
@@ -579,11 +578,12 @@ class Lib(object):
                 if port['id'] == kw['port_id']:
                     return port['fixed_ips']
         elif kw.get('fixed_port_id', None):
-            fips = []
-            for fip in floating_ports:
-                if fip['fixed_port_id'] == kw['fixed_port_id']:
-                    fips.append(fip)
-            return fips
+            return [
+                fip
+                for fip in floating_ports
+                if fip['fixed_port_id'] == kw['fixed_port_id']
+            ]
+
         else:
             raise Exception("port_query doesn't know how to handle kw=%r" % kw)
 

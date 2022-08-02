@@ -172,11 +172,10 @@ class TestIPIP(TestBase):
         tunnel as expected.
         """
         with DockerHost('host1',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host1, \
-                DockerHost('host2',
-                           additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                           start_calico=False) as host2:
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host1, DockerHost('host2',
+                               additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                               start_calico=False) as host2:
 
             # Create an IP pool with IP-in-IP disabled.
             self.pool_action(host1, "create", DEFAULT_IPV4_POOL_CIDR, ipip_mode="Never")
@@ -213,8 +212,8 @@ class TestIPIP(TestBase):
             modes = ["Always"]
             for mode in ["CrossSubnet", "Always", "Never", "Always"]:
                 # At the start of this loop we should have connectivity.
-                logger.info("New mode setting: %s" % mode)
-                logger.info("Previous mode settings: %s" % modes)
+                logger.info(f"New mode setting: {mode}")
+                logger.info(f"Previous mode settings: {modes}")
 
                 # Shutdown the calico-node on host1, we should still have connectivity because
                 # the node was shut down without removing the routes.  Check tunnel usage based
@@ -268,7 +267,7 @@ class TestIPIP(TestBase):
         if nat_outgoing is not None:
             testdata['spec']['natOutgoing'] = nat_outgoing
         host.writejson("testfile", testdata)
-        host.calicoctl("%s -f testfile" % action)
+        host.calicoctl(f"{action} -f testfile")
 
     def assert_tunl_ip(self, host, ip_network, expect=True):
         """
@@ -287,9 +286,10 @@ class TestIPIP(TestBase):
         for retry in range(retries + 1):
             try:
                 output = host.execute("ip addr show tunl0")
-                match = re.search(r'inet ([\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3})', output)
-                if match:
-                    ip_address = IPAddress(match.group(1))
+                if match := re.search(
+                    r'inet ([\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3})', output
+                ):
+                    ip_address = IPAddress(match[1])
                     if expect:
                         self.assertIn(ip_address, ip_network)
                     else:
@@ -318,7 +318,7 @@ class TestIPIP(TestBase):
         if not match:
             return
 
-        ipnet = str(IPNetwork(match.group(1)))
+        ipnet = str(IPNetwork(match[1]))
 
         try:
             subprocess.check_output(["ip", "addr", "del", ipnet, "dev", "tunl0"])
@@ -332,8 +332,10 @@ class TestIPIP(TestBase):
 
         Returns the current mask size.
         """
-        node = json.loads(host.calicoctl(
-            "get node %s --output=json" % host.get_hostname()))
+        node = json.loads(
+            host.calicoctl(f"get node {host.get_hostname()} --output=json")
+        )
+
 
         # Get the current network and prefix len
         ipnet = IPNetwork(node["spec"]["bgp"]["ipv4Address"])
@@ -355,11 +357,12 @@ class TestIPIP(TestBase):
         """
         def check():
             orig_tx = self.get_tunl_tx(host1)
-            workload_host1.execute("ping -c 2 -W 1 %s" % workload_host2.ip)
+            workload_host1.execute(f"ping -c 2 -W 1 {workload_host2.ip}")
             if expect_ipip:
                 self.assertEqual(self.get_tunl_tx(host1), orig_tx + 2)
             else:
                 self.assertEqual(self.get_tunl_tx(host1), orig_tx)
+
         retry_until_success(check, retries=10)
 
     @staticmethod
@@ -374,7 +377,7 @@ class TestIPIP(TestBase):
 
         match = re.search(r'RX packets:(\d+) ',
                           output)
-        return int(match.group(1))
+        return int(match[1])
 
     @parameterized.expand([
         (False,),
@@ -484,10 +487,11 @@ class TestIPIP(TestBase):
                         # during the following monitoring, as it might be a
                         # little slower than what is needed for the workload
                         # connectivity tested above.
-                        expected_route_string = "/26 via " + rr_ip
+                        expected_route_string = f"/26 via {rr_ip}"
                         def check():
                             self.assertIn(expected_route_string,
                                           host.execute("ip r"))
+
                         retry_until_success(check, retries=10)
 
                     # Check that routes are not flapping, on either host, by

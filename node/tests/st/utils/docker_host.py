@@ -48,8 +48,7 @@ if ETCD_SCHEME == "https":
                                 (ETCD_HOSTNAME_SSL, ETCD_CA, ETCD_CERT,
                                  ETCD_KEY)
 else:
-    CLUSTER_STORE_DOCKER_OPTIONS = "--cluster-store=etcd://%s:2379 " % \
-                                get_ip()
+    CLUSTER_STORE_DOCKER_OPTIONS = f"--cluster-store=etcd://{get_ip()}:2379 "
 
 
 class DockerHost(object):
@@ -90,8 +89,7 @@ class DockerHost(object):
         None, no value will be passed.
         """
 
-        self.override_hostname = None if not override_hostname else \
-            uuid.uuid1().hex[:16]
+        self.override_hostname = uuid.uuid1().hex[:16] if override_hostname else None
         """
         Create an arbitrary hostname if we want to override.
         """
@@ -102,15 +100,15 @@ class DockerHost(object):
         self._cleaned = False
 
         docker_args = "--privileged -tid " \
-                      "-v /lib/modules:/lib/modules " \
-                      "-v %s/certs:%s/certs -v %s:/code --name %s" % \
-                      (CHECKOUT_DIR, CHECKOUT_DIR, CHECKOUT_DIR,
+                          "-v /lib/modules:/lib/modules " \
+                          "-v %s/certs:%s/certs -v %s:/code --name %s" % \
+                          (CHECKOUT_DIR, CHECKOUT_DIR, CHECKOUT_DIR,
                        self.name)
         if ETCD_SCHEME == "https":
-            docker_args += " --add-host %s:%s" % (ETCD_HOSTNAME_SSL, get_ip())
+            docker_args += f" --add-host {ETCD_HOSTNAME_SSL}:{get_ip()}"
 
         if dind:
-            log_and_run("docker rm -f %s || true" % self.name)
+            log_and_run(f"docker rm -f {self.name} || true")
             # Pass the certs directory as a volume since the etcd SSL/TLS
             # environment variables use the full path on the host.
             # Set iptables=false to prevent iptables error when using dind
@@ -139,7 +137,7 @@ class DockerHost(object):
                 # before re-raising the exception.
                 logger.error("Error waiting for docker to be ready in DockerHost")
                 log_and_run("docker ps -a")
-                log_and_run("docker logs %s" % self.name)
+                log_and_run(f"docker logs {self.name}")
                 raise
 
             if simulate_gce_routing:
@@ -155,8 +153,8 @@ class DockerHost(object):
                 self.execute("ip r")
 
                 # Change the normal /16 IP address to /32.
-                self.execute("ip a del %s/16 dev eth0" % self.ip)
-                self.execute("ip a add %s/32 dev eth0" % self.ip)
+                self.execute(f"ip a del {self.ip}/16 dev eth0")
+                self.execute(f"ip a add {self.ip}/32 dev eth0")
 
                 # Add a default route via the Docker bridge.
                 self.execute("ip r a 172.17.0.1 dev eth0")
@@ -244,16 +242,16 @@ class DockerHost(object):
             logger.debug("Running dind, copy file to host first")
 
             # Make a tmp directory where we can place the file.
-            log_and_run("mkdir -p /tmp/%s" % self.name, raise_exception_on_failure=True)
+            log_and_run(f"mkdir -p /tmp/{self.name}", raise_exception_on_failure=True)
 
             # Generate the filename to use on the host.
             # /var/log/calico/felix/current becomes /tmp/<host>/var-log-calico-felix-current.
-            hostfile = "/tmp/%s/%s" % (self.name, filename.strip("/").replace("/", "-"))
+            hostfile = f'/tmp/{self.name}/{filename.strip("/").replace("/", "-")}'
 
             # Copy to the host.
-            c = "docker cp %s:%s %s" % (self.name, filename, hostfile)
+            c = f"docker cp {self.name}:{filename} {hostfile}"
             log_and_run(c, raise_exception_on_failure=True)
-            logger.debug("Copied file from container to %s" % hostfile)
+            logger.debug(f"Copied file from container to {hostfile}")
             command = command % hostfile
         else:
             # Otherwise just run the provided command.
@@ -278,32 +276,35 @@ class DockerHost(object):
         :return: The output from the command with leading and trailing
         whitespace removed.
         """
-        if not version:
-            calicoctl = os.environ.get("CALICOCTL", "/code/dist/calicoctl")
-        else:
-            calicoctl = "/code/dist/calicoctl-" + version
+        calicoctl = (
+            f"/code/dist/calicoctl-{version}"
+            if version
+            else os.environ.get("CALICOCTL", "/code/dist/calicoctl")
+        )
 
         if ETCD_SCHEME == "https":
-            etcd_auth = "%s:2379" % ETCD_HOSTNAME_SSL
+            etcd_auth = f"{ETCD_HOSTNAME_SSL}:2379"
         else:
-            etcd_auth = "%s:2379" % get_ip()
+            etcd_auth = f"{get_ip()}:2379"
         # Export the environment, in case the command has multiple parts, e.g.
         # use of | or ;
         #
         # Pass in all etcd params, the values will be empty if not set anyway
         calicoctl = "export ETCD_ENDPOINTS=%s://%s; " \
-                    "export ETCD_CA_CERT_FILE=%s; " \
-                    "export ETCD_CERT_FILE=%s; " \
-                    "export ETCD_KEY_FILE=%s; %s" % \
-                    (ETCD_SCHEME, etcd_auth, ETCD_CA, ETCD_CERT, ETCD_KEY,
+                        "export ETCD_CA_CERT_FILE=%s; " \
+                        "export ETCD_CERT_FILE=%s; " \
+                        "export ETCD_KEY_FILE=%s; %s" % \
+                        (ETCD_SCHEME, etcd_auth, ETCD_CA, ETCD_CERT, ETCD_KEY,
                      calicoctl)
         # If the hostname is being overridden, then export the HOSTNAME
         # environment.
         if self.override_hostname:
-            calicoctl = "export HOSTNAME=%s; %s" % (
-                self.override_hostname, calicoctl)
+            calicoctl = f"export HOSTNAME={self.override_hostname}; {calicoctl}"
 
-        return self.execute(calicoctl + " --allow-version-mismatch " + command, raise_exception_on_failure=raise_exception_on_failure)
+        return self.execute(
+            f"{calicoctl} --allow-version-mismatch {command}",
+            raise_exception_on_failure=raise_exception_on_failure,
+        )
 
     def start_calico_node(self, options="", with_ipv4pool_cidr_env_var=True, env_options=""):
         """
@@ -317,15 +318,15 @@ class DockerHost(object):
         if with_ipv4pool_cidr_env_var:
             args.append('--dryrun')
         if "--node-image" not in options:
-            args.append('--node-image=%s' % NODE_CONTAINER_NAME)
+            args.append(f'--node-image={NODE_CONTAINER_NAME}')
 
         # Add the IP addresses if required and we aren't explicitly specifying
         # them in the options.  The --ip and  --ip6 options can be specified
         # using "=" or space-separated parms.
         if self.ip and "--ip=" not in options and "--ip " not in options:
-            args.append('--ip=%s' % self.ip)
+            args.append(f'--ip={self.ip}')
         if self.ip6 and "--ip6=" not in options and "--ip6 " not in options:
-            args.append('--ip6=%s' % self.ip6)
+            args.append(f'--ip6={self.ip6}')
         args.append(options)
 
         cmd = ' '.join(args)
@@ -343,23 +344,31 @@ class DockerHost(object):
                     # This is the line we want to modify.
                     break
             else:
-                raise AssertionError("No node run line in %s" % output)
+                raise AssertionError(f"No node run line in {output}")
 
             # Break the line at the first occurrence of " -e ".
             prefix, _, suffix = line.rstrip().partition(" -e ")
 
             felix_logsetting = ""
             if FELIX_LOGLEVEL != "":
-                felix_logsetting = " -e FELIX_LOGSEVERITYSCREEN=" + FELIX_LOGLEVEL
+                felix_logsetting = f" -e FELIX_LOGSEVERITYSCREEN={FELIX_LOGLEVEL}"
 
             # Construct the calicoctl command that we want, including the
             # CALICO_IPV4POOL_CIDR setting.
             modified_cmd = (
-                prefix +
-                (" -e CALICO_IPV4POOL_CIDR=%s " % DEFAULT_IPV4_POOL_CIDR) +
-                felix_logsetting + env_options +
-                " -e " + suffix
-            )
+                (
+                    (
+                        (
+                            prefix
+                            + f" -e CALICO_IPV4POOL_CIDR={DEFAULT_IPV4_POOL_CIDR} "
+                        )
+                        + felix_logsetting
+                    )
+                    + env_options
+                )
+                + " -e "
+            ) + suffix
+
 
             # Now run that.
             self.execute(modified_cmd)
@@ -392,22 +401,22 @@ class DockerHost(object):
         Start calico in a container inside a host by calling docker directly.
         """
         if ETCD_SCHEME == "https":
-            etcd_auth = "%s:2379" % ETCD_HOSTNAME_SSL
+            etcd_auth = f"{ETCD_HOSTNAME_SSL}:2379"
             ssl_args = "-e ETCD_CA_CERT_FILE=%s " \
-                       "-e ETCD_CERT_FILE=%s " \
-                       "-e ETCD_KEY_FILE=%s " \
-                       "-v %s/certs:%s/certs " \
-                       % (ETCD_CA, ETCD_CERT, ETCD_KEY,
+                           "-e ETCD_CERT_FILE=%s " \
+                           "-e ETCD_KEY_FILE=%s " \
+                           "-v %s/certs:%s/certs " \
+                           % (ETCD_CA, ETCD_CERT, ETCD_KEY,
                           CHECKOUT_DIR, CHECKOUT_DIR)
 
         else:
-            etcd_auth = "%s:2379" % get_ip()
+            etcd_auth = f"{get_ip()}:2379"
             ssl_args = ""
 
         # If the hostname has been overridden on this host, then pass it in
         # as an environment variable.
         if self.override_hostname:
-            hostname_args = "-e HOSTNAME=%s" % self.override_hostname
+            hostname_args = f"-e HOSTNAME={self.override_hostname}"
         else:
             hostname_args = ""
 
@@ -432,7 +441,7 @@ class DockerHost(object):
         for workload in self.workloads:
             try:
                 workload.run_cni("DEL")
-                self.execute("docker rm -f %s" % workload.name)
+                self.execute(f"docker rm -f {workload.name}")
             except CalledProcessError:
                 # Make best effort attempt to clean containers. Don't fail the
                 # test if a container can't be removed.
@@ -599,12 +608,12 @@ class DockerHost(object):
             with tempfile.NamedTemporaryFile() as tmp:
                 tmp.write(data)
                 tmp.flush()
-                log_and_run("docker cp %s %s:%s" % (tmp.name, self.name, filename))
+                log_and_run(f"docker cp {tmp.name} {self.name}:{filename}")
         else:
             with open(filename, 'w') as f:
                 f.write(data)
 
-        self.execute("cat %s" % filename)
+        self.execute(f"cat {filename}")
 
     def writejson(self, filename, data):
         """
@@ -636,22 +645,22 @@ class DockerHost(object):
         # However, profiles are treated differently. We must first filter out
         # the 'projectcalico-default-allow' profile that always exists and
         # cannot be deleted.
-        objects = yaml.safe_load(self.calicoctl("get %s -o yaml" % resource))
+        objects = yaml.safe_load(self.calicoctl(f"get {resource} -o yaml"))
 
         # Filter out the default-allow profile
         if resource == 'profile':
-            temp = []
-            for profile in objects['items']:
-                if profile['metadata']['name'] != "projectcalico-default-allow":
-                    temp.append(profile)
+            temp = [
+                profile
+                for profile in objects['items']
+                if profile['metadata']['name'] != "projectcalico-default-allow"
+            ]
 
             objects['items'] = temp
 
-        if len(objects) > 0:
-            if 'items' in objects and len(objects['items']) == 0:
-                pass
-            else:
-                self._delete_data(objects)
+        if len(objects) > 0 and (
+            'items' not in objects or len(objects['items']) != 0
+        ):
+            self._delete_data(objects)
 
     def _delete_data(self, data):
         logger.debug("Deleting data with calicoctl: %s", data)
@@ -671,7 +680,7 @@ class DockerHost(object):
 
         # Use calicoctl with the modified data.
         self.writejson("new_data", data)
-        self.calicoctl("%s -f new_data" % action)
+        self.calicoctl(f"{action} -f new_data")
 
     def log_extra_diags(self):
         # Check for OOM kills.
@@ -693,12 +702,14 @@ class DockerHost(object):
 
         self.execute("docker ps -a", raise_exception_on_failure=False)
         for wl in self.workloads:
-            wl.host.execute("docker logs %s" % wl.name, raise_exception_on_failure=False)
-        log_and_run("docker logs %s" % self.name, raise_exception_on_failure=False)
+            wl.host.execute(f"docker logs {wl.name}", raise_exception_on_failure=False)
+        log_and_run(f"docker logs {self.name}", raise_exception_on_failure=False)
 
     def delete_conntrack_state_to_ip(self, protocol, dst_ip):
-        self.execute("docker exec calico-node conntrack -D -p %s --orig-dst %s" % (protocol, dst_ip),
-                     raise_exception_on_failure=False)
+        self.execute(
+            f"docker exec calico-node conntrack -D -p {protocol} --orig-dst {dst_ip}",
+            raise_exception_on_failure=False,
+        )
 
     def delete_conntrack_state_to_workloads(self, protocol):
         for workload in self.workloads:

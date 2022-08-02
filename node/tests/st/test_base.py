@@ -45,12 +45,11 @@ first_log_time = None
 
 
 def calculate_batch(cname, mname):
-    combined = cname + "." + mname
+    combined = f"{cname}.{mname}"
     m = hashlib.sha224()
     m.update(combined)
-    batch = ord(m.digest()[0]) % NUM_BATCHES
-    print "Assigned %s to batch %s" % (combined, batch)
-    return batch
+    combined = cname + "." + mname
+    return ord(m.digest()[0]) % NUM_BATCHES
 
 
 class AutoBatcher(type):
@@ -61,7 +60,7 @@ class AutoBatcher(type):
     method name.
     """
 
-    def __init__(cls, name, bases, dct):
+    def __init__(self, name, bases, dct):
         test_methods_with_no_batch = {}
         has_batch = False
         for k, v in dct.iteritems():
@@ -77,7 +76,7 @@ class AutoBatcher(type):
             for k, v in test_methods_with_no_batch.iteritems():
                 v.batchnumber = calculate_batch(name, k)
             dct["batchnumber"] = calculate_batch(name, "__class__")
-        super(AutoBatcher, cls).__init__(name, bases, dct)
+        super(AutoBatcher, self).__init__(name, bases, dct)
 
 
 class TestBase(TestCase):
@@ -208,10 +207,7 @@ class TestBase(TestCase):
                 source, dest, test_type, exp_result, retries = conn_check_list[i]
                 pass_fail = results[i]
                 # Convert pass/fail into an actual result
-                if not pass_fail:
-                    actual_result = not exp_result
-                else:
-                    actual_result = exp_result
+                actual_result = exp_result if pass_fail else not exp_result
                 diag = [source.ip, dest, test_type, exp_result, actual_result]
                 diagline = "{: >18} {: >18} {: >7} {: >6} {: >6}\r\n".format(*diag)
                 diagstring += diagline
@@ -272,12 +268,10 @@ class TestBase(TestCase):
 
     def check_data_in_datastore(self, host, data, resource, yaml_format=True):
         if yaml_format:
-            out = host.calicoctl(
-                "get %s --output=yaml" % resource)
+            out = host.calicoctl(f"get {resource} --output=yaml")
             output = yaml.safe_load(out)
         else:
-            out = host.calicoctl(
-                "get %s --output=json" % resource)
+            out = host.calicoctl(f"get {resource} --output=json")
             output = json.loads(out)
         self.assert_same(data, output)
 

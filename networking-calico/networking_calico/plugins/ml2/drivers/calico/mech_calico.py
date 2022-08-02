@@ -343,11 +343,11 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
             # Create syncers.
             self.subnet_syncer = \
-                SubnetSyncer(self.db, self._txn_from_context)
+                    SubnetSyncer(self.db, self._txn_from_context)
             self.policy_syncer = \
-                PolicySyncer(self.db, self._txn_from_context)
+                    PolicySyncer(self.db, self._txn_from_context)
             self.endpoint_syncer = \
-                WorkloadEndpointSyncer(self.db,
+                    WorkloadEndpointSyncer(self.db,
                                        self._txn_from_context,
                                        self.policy_syncer,
                                        keystone_client)
@@ -413,17 +413,13 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
                     LOG.error("StatusWatcher %s died", self._etcd_watcher)
                     self._etcd_watcher.stop()
                     self._etcd_watcher = None
-            else:
-                if self._etcd_watcher is not None:
-                    LOG.warning("No longer master, stopping StatusWatcher")
-                    self._etcd_watcher.stop()
-                    self._etcd_watcher = None
-                # Short sleep interval before we check if we've become
-                # the master.
+            elif self._etcd_watcher is not None:
+                LOG.warning("No longer master, stopping StatusWatcher")
+                self._etcd_watcher.stop()
+                self._etcd_watcher = None
             eventlet.sleep(MASTER_CHECK_INTERVAL_SECS)
-        else:
-            LOG.warning("Unexpected: epoch changed. "
-                        "Handling status updates thread exiting.")
+        LOG.warning("Unexpected: epoch changed. "
+                    "Handling status updates thread exiting.")
 
     def on_felix_alive(self, felix_hostname, new):
         LOG.info("Felix on host %s is alive; fanning out status report",
@@ -448,13 +444,7 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         """
         port_status_key = (intern_string(hostname), port_id)
         # Unwrap the dict around the actual status.
-        if status_dict is not None:
-            # Update.
-            calico_status = status_dict.get("status")
-        else:
-            # Deletion.
-            calico_status = None
-
+        calico_status = status_dict.get("status") if status_dict is not None else None
         # Check whether this update gives us new information to pass to
         # Neutron.  "high" priority updates come from changes spotted by Felix,
         # including interface flaps caused by, for example, VM rebuild.  In
@@ -544,8 +534,7 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         :param port_status_key: tuple of hostname, port_id.
         """
         hostname, port_id = port_status_key
-        calico_status = self._port_status_cache.get(port_status_key)
-        if calico_status:
+        if calico_status := self._port_status_cache.get(port_status_key):
             neutron_status = PORT_STATUS_MAPPING[calico_status]
             LOG.info("Updating port %s status to %s", port_id, neutron_status)
         else:
@@ -623,7 +612,7 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
     def _get_db(self):
         if not self.db:
             self.db = plugin_dir.get_plugin()
-            LOG.info("db = %s" % self.db)
+            LOG.info(f"db = {self.db}")
 
             # Update the reference to ourselves.
             global mech_driver
@@ -646,16 +635,15 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         return super(CalicoMechanismDriver, self).bind_port(context)
 
     def check_segment_for_agent(self, segment, agent):
-        LOG.debug("Checking segment %s with agent %s" % (segment, agent))
+        LOG.debug(f"Checking segment {segment} with agent {agent}")
         if segment[api.NETWORK_TYPE] in ['local', 'flat']:
             return True
-        else:
-            LOG.warning(
-                "Calico does not support network type %s, on network %s",
-                segment[api.NETWORK_TYPE],
-                segment[api.ID],
-            )
-            return False
+        LOG.warning(
+            "Calico does not support network type %s, on network %s",
+            segment[api.NETWORK_TYPE],
+            segment[api.ID],
+        )
+        return False
 
     def get_allowed_network_types(self, agent=None):
         return ('local', 'flat')
@@ -669,17 +657,17 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
     # For network and subnet actions we have nothing to do, so we provide these
     # no-op methods.
     def create_network_postcommit(self, context):
-        LOG.info("CREATE_NETWORK_POSTCOMMIT: %s" % context)
+        LOG.info(f"CREATE_NETWORK_POSTCOMMIT: {context}")
 
     def update_network_postcommit(self, context):
-        LOG.info("UPDATE_NETWORK_POSTCOMMIT: %s" % context)
+        LOG.info(f"UPDATE_NETWORK_POSTCOMMIT: {context}")
 
     def delete_network_postcommit(self, context):
-        LOG.info("DELETE_NETWORK_POSTCOMMIT: %s" % context)
+        LOG.info(f"DELETE_NETWORK_POSTCOMMIT: {context}")
 
     @requires_state
     def create_subnet_postcommit(self, context):
-        LOG.info("CREATE_SUBNET_POSTCOMMIT: %s" % context)
+        LOG.info(f"CREATE_SUBNET_POSTCOMMIT: {context}")
 
         # Re-read the subnet from the DB.  This ensures that a change to the
         # same subnet can't be processed by another controller process while
@@ -693,7 +681,7 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
     @requires_state
     def update_subnet_postcommit(self, context):
-        LOG.info("UPDATE_SUBNET_POSTCOMMIT: %s" % context)
+        LOG.info(f"UPDATE_SUBNET_POSTCOMMIT: {context}")
 
         # Re-read the subnet from the DB.  This ensures that a change to the
         # same subnet can't be processed by another controller process while
@@ -709,7 +697,7 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
     @requires_state
     def delete_subnet_postcommit(self, context):
-        LOG.info("DELETE_SUBNET_POSTCOMMIT: %s" % context)
+        LOG.info(f"DELETE_SUBNET_POSTCOMMIT: {context}")
         self.subnet_syncer.subnet_deleted(context.current['id'])
 
     # Idealised method forms.
@@ -831,7 +819,6 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
                 self.endpoint_syncer.delete_endpoint(original)
             else:
                 LOG.info("Update on unbound port: no action")
-                pass
 
     @requires_state
     def update_floatingip(self, plugin_context):
@@ -1017,15 +1004,12 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
             # Generate a cluster GUID if there isn't one already.
             if not cluster_info.get(datamodel_v3.CLUSTER_GUID):
                 cluster_info[datamodel_v3.CLUSTER_GUID] = \
-                    uuid.uuid4().hex
+                        uuid.uuid4().hex
                 rewrite_cluster_info = True
 
-            # Add "openstack" to the cluster type, unless there already.
-            cluster_type = cluster_info.get(datamodel_v3.CLUSTER_TYPE, "")
-            if cluster_type:
+            if cluster_type := cluster_info.get(datamodel_v3.CLUSTER_TYPE, ""):
                 if "openstack" not in cluster_type:
-                    cluster_info[datamodel_v3.CLUSTER_TYPE] = \
-                        cluster_type + ",openstack"
+                    cluster_info[datamodel_v3.CLUSTER_TYPE] = f"{cluster_type},openstack"
                     rewrite_cluster_info = True
             else:
                 cluster_info[datamodel_v3.CLUSTER_TYPE] = "openstack"
@@ -1089,7 +1073,7 @@ class CalicoMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
             if 'tap' not in prefixes:
                 prefixes.append('tap')
                 felix_config[datamodel_v3.INTERFACE_PREFIX] = \
-                    ','.join(prefixes)
+                        ','.join(prefixes)
                 rewrite_felix_config = True
 
             # Rewrite FelixConfiguration, if we changed anything above.
@@ -1116,7 +1100,7 @@ original_sgr_updated = rpc.AgentNotifierApi.security_groups_rule_updated
 
 
 def security_groups_rule_updated(self, context, sgids):
-    LOG.info("security_groups_rule_updated: %s %s" % (context, sgids))
+    LOG.info(f"security_groups_rule_updated: {context} {sgids}")
     mech_driver.send_sg_updates(sgids, context)
     original_sgr_updated(self, context, sgids)
 
@@ -1144,10 +1128,7 @@ def port_status_change(port, original):
     port.pop('status')
     original.pop('status')
 
-    if port == original:
-        return True
-    else:
-        return False
+    return port == original
 
 
 def port_bound(port):
@@ -1174,8 +1155,8 @@ def felix_agent_state(hostname, start_flag=False):
 
 
 COMPACTION_PREFIX = "/calico/compaction/v1/"
-COMPACTION_TRIGGER_KEY = COMPACTION_PREFIX + "trigger"
-COMPACTION_LAST_KEY = COMPACTION_PREFIX + "last"
+COMPACTION_TRIGGER_KEY = f"{COMPACTION_PREFIX}trigger"
+COMPACTION_LAST_KEY = f"{COMPACTION_PREFIX}last"
 
 
 def check_request_etcd_compaction():
@@ -1204,7 +1185,7 @@ def check_request_etcd_compaction():
 
     try:
         # Try to read the compaction trigger key.
-        try:
+        with contextlib.suppress(etcdv3.KeyNotFound):
             _, _, lease = etcdv3.get(COMPACTION_TRIGGER_KEY, with_lease=True)
 
             # No exception, so the key still exists.  Check that it still has a
@@ -1263,12 +1244,6 @@ def check_request_etcd_compaction():
 
                 # Now fall through to the code below to consider requesting a
                 # compaction.
-
-        except etcdv3.KeyNotFound:
-            # The key has timed out, so etcd_compaction_period_mins has passed
-            # since the last time we considered compaction.  (Or else the key
-            # has never existed yet.)
-            pass
 
         # Find out when the last compaction happened, and what the current
         # revision was etcd_compaction_period_mins ago.

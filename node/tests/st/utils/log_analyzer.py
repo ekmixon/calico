@@ -75,8 +75,7 @@ class Log(object):
                                                    self.pid, self.msg)
 
     def __str__(self):
-        return "%s %s %s %s" % (self.timestamp, self.level,
-                                self.pid, self.msg)
+        return f"{self.timestamp} {self.level} {self.pid} {self.msg}"
 
     def __repr__(self):
         return self.__str__()
@@ -154,7 +153,7 @@ class LogAnalyzer(object):
         :return: The number of lines in the log file or None if the file does
         not exist or cannot be read.
         """
-        cmd = "wc -l %s" % self.filename
+        cmd = f"wc -l {self.filename}"
         lines = None
         stdout = None
         try:
@@ -198,12 +197,12 @@ class LogAnalyzer(object):
         _log.debug("First log has timestamp: %s", first_log_time)
 
         if first_log_time != self.init_log_time or \
-                not self.init_log_lines:
+                    not self.init_log_lines:
             _log.debug("Log file is new")
             cmd = "cat %s"
         else:
             _log.debug("Check appended logs")
-            cmd = "tail -n +%s %s" % (self.init_log_lines + 1, self.filename)
+            cmd = f"tail -n +{self.init_log_lines + 1} {self.filename}"
         return self._parse_logs(cmd, self.filename)
 
     def _parse_logs(self, cmd, filename):
@@ -282,11 +281,7 @@ class LogAnalyzer(object):
                 last_log.append(logtext)
             return last_log
 
-        # Create and return the new log.  We don't add it until we start the
-        # next log as we need to get the entire log before we can run it
-        # through the filter.
-        log = Log(timestamp, loglevel, pid, logtext)
-        return log
+        return Log(timestamp, loglevel, pid, logtext)
 
     def check_logs_for_exceptions(self, err_words=None, ignore_list=[]):
         """
@@ -359,6 +354,6 @@ class LogAnalyzer(object):
             err_words = {"ERROR", "PANIC", "FATAL", "CRITICAL"}
         is_error = log.level in err_words
         if is_error:
-            is_error = not any(log.msg.find(txt) > 0 for txt in ignores)
+            is_error = all(log.msg.find(txt) <= 0 for txt in ignores)
 
         return is_error

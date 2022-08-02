@@ -63,16 +63,10 @@ class Workload(object):
         self.namespace = namespace
         self.labels = labels
 
-        lbl_args = ""
-        for label in labels:
-            lbl_args += " --label %s" % (label)
-
+        lbl_args = "".join(f" --label {label}" for label in labels)
         net_options = "--net=none"
 
-        command = "docker run -tid --name %s %s %s %s" % (name,
-                                                          net_options,
-                                                          lbl_args,
-                                                          image)
+        command = f"docker run -tid --name {name} {net_options} {lbl_args} {image}"
         docker_run_wl = partial(host.execute, command)
         retry_until_success(docker_run_wl)
 
@@ -85,7 +79,7 @@ class Workload(object):
         container_id = self.host.execute(
             "docker inspect --format '{{.Id}}' %s" % self.name)
         ip_json = (',"args":{"ip":"%s"}' % ip) if (ip and adding) else ''
-        ip_args = ('CNI_ARGS=IP=%s ' % ip) if (ip and adding) else ''
+        ip_args = f'CNI_ARGS=IP={ip} ' if (ip and adding) else ''
         etcd_json = '"etcd_endpoints":"http://%s:2379",' % get_ip()
         if ETCD_SCHEME == "https":
             etcd_json = ('"etcd_endpoints":"https://%s:2379",' % ETCD_HOSTNAME_SSL +
@@ -107,23 +101,33 @@ class Workload(object):
         # For non-k8s cluster, CNI takes namespace args and attaches a default
         # profile with network name.
         if self.namespace:
-            cni_args = 'CNI_ARGS=CNI_TEST_NAMESPACE=%s ' % self.namespace
+            cni_args = f'CNI_ARGS=CNI_TEST_NAMESPACE={self.namespace} '
         else:
             cni_args = ''
 
-        command = ('echo \'{' +
-                   '"name":"%s",' % self.network +
-                   '"type":"calico",' +
-                   etcd_json +
-                   labels_json +
-                   '"ipam":{"type":"calico-ipam"%s}' % ip_json +
-                   '}\' | ' +
-                   'CNI_COMMAND=%s ' % add_or_del +
-                   'CNI_CONTAINERID=%s ' % container_id +
-                   'CNI_NETNS=/proc/%s/ns/net ' % workload_pid +
-                   'CNI_IFNAME=eth0 ' +
-                   cni_args +
-                   'CNI_PATH=/code/dist ')
+        command = (
+            (
+                (
+                    (
+                        (
+                            'echo \'{'
+                            + '"name":"%s",' % self.network
+                            + '"type":"calico",'
+                            + etcd_json
+                            + labels_json
+                            + '"ipam":{"type":"calico-ipam"%s}' % ip_json
+                            + '}\' | '
+                            + f'CNI_COMMAND={add_or_del} '
+                        )
+                        + f'CNI_CONTAINERID={container_id} '
+                    )
+                    + f'CNI_NETNS=/proc/{workload_pid}/ns/net '
+                )
+                + 'CNI_IFNAME=eth0 '
+            )
+            + cni_args
+        ) + 'CNI_PATH=/code/dist '
+
 
         command = command + ip_args + '/code/dist/calico'
         output = self.host.execute(command)
@@ -156,7 +160,7 @@ class Workload(object):
         # instead of in __init__ as we can't exist in the host until we're
         # created.
         assert self in self.host.workloads
-        return self.host.execute("docker exec %s %s" % (self.name, command))
+        return self.host.execute(f"docker exec {self.name} {command}")
 
     def _get_ping_function(self, ip):
         """
@@ -272,8 +276,7 @@ class Workload(object):
 
         command = ' '.join(args)
 
-        tcp_check = partial(self.execute, command)
-        return tcp_check
+        return partial(self.execute, command)
 
     def _get_tcp_asym_function(self, ip):
         """
@@ -292,8 +295,7 @@ class Workload(object):
 
         command = ' '.join(args)
 
-        tcp_asym_check = partial(self.execute, command)
-        return tcp_asym_check
+        return partial(self.execute, command)
 
     @debug_failures
     def check_can_tcp(self, ip, retries=0):
@@ -388,8 +390,7 @@ class Workload(object):
 
         command = ' '.join(args)
 
-        udp_check = partial(self.execute, command)
-        return udp_check
+        return partial(self.execute, command)
 
     @debug_failures
     def check_can_udp(self, ip, retries=0):

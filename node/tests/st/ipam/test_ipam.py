@@ -97,9 +97,10 @@ class MultiHostIpam(TestBase):
         self.hosts[0].calicoctl("create -f newpool.json")
 
         for host in self.hosts:
-            workload = host.create_workload("wlda-%s" % host.name,
-                                            image="workload",
-                                            network=self.network)
+            workload = host.create_workload(
+                f"wlda-{host.name}", image="workload", network=self.network
+            )
+
             assert netaddr.IPAddress(workload.ip) in ipv4_subnet
             old_pool_workloads.append((workload, host))
 
@@ -108,7 +109,7 @@ class MultiHostIpam(TestBase):
         assert blackhole_cidr in ipv4_subnet
         # Check there's only one /32 present and that its within the pool
         output = self.hosts[0].execute("ip r | grep cali").split('\n')
-        assert len(output) == 1, "Output should only be 1 line.  Got: %s" % output
+        assert len(output) == 1, f"Output should only be 1 line.  Got: {output}"
         wl_ip = netaddr.IPNetwork(output[0].split()[0])
         assert wl_ip in ipv4_subnet
 
@@ -127,18 +128,21 @@ class MultiHostIpam(TestBase):
         self.hosts[0].calicoctl("create -f pools.json")
 
         for host in self.hosts:
-            workload = host.create_workload("wlda2-%s" % host.name,
-                                            image="workload",
-                                            network=self.network)
-            assert netaddr.IPAddress(workload.ip) in ipv4_subnet, \
-                "Workload IP in wrong pool. IP: %s, Pool: %s" % (workload.ip, ipv4_subnet.ipv4())
+            workload = host.create_workload(
+                f"wlda2-{host.name}", image="workload", network=self.network
+            )
+
+            assert (
+                netaddr.IPAddress(workload.ip) in ipv4_subnet
+            ), f"Workload IP in wrong pool. IP: {workload.ip}, Pool: {ipv4_subnet.ipv4()}"
+
 
         blackhole_cidr = netaddr.IPNetwork(
             self.hosts[0].execute("ip r | grep blackhole").split()[1])
         assert blackhole_cidr in ipv4_subnet
         # Check there's only one /32 present and that its within the pool
         output = self.hosts[0].execute("ip r | grep cali").split('\n')
-        assert len(output) == 1, "Output should only be 1 line.  Got: %s" % output
+        assert len(output) == 1, f"Output should only be 1 line.  Got: {output}"
         wl_ip = netaddr.IPNetwork(output[0].split()[0])
         assert wl_ip in ipv4_subnet
 
@@ -161,23 +165,24 @@ class MultiHostIpam(TestBase):
 
         for i in range(num_workloads):
             host = random.choice(self.hosts)
-            workload = host.create_workload("wlds-%s" % i,
-                                            image="workload",
-                                            network=self.network)
+            workload = host.create_workload(
+                f"wlds-{i}", image="workload", network=self.network
+            )
+
             workload_ips.append(workload.ip)
 
-        print workload_ips
-
+        num_workloads = 2
         for ip in ipv4_subnet:
-            response = self.hosts[0].calicoctl("ipam show --ip=%s" % ip)
+            response = self.hosts[0].calicoctl(f"ipam show --ip={ip}")
             if "No attributes defined for" in response:
                 # This means the IP is assigned
                 assert str(ip) in workload_ips, "ipam show says IP %s " \
-                                                "is assigned when it is not" % ip
+                                                    "is assigned when it is not" % ip
             if "not currently assigned in block" in response:
                 # This means the IP is not assigned
-                assert str(ip) not in workload_ips, \
-                    "ipam show says IP %s is not assigned when it is!" % ip
+                assert (
+                    str(ip) not in workload_ips
+                ), f"ipam show says IP {ip} is not assigned when it is!"
 
     @parameterized.expand([
         (False,),
@@ -208,21 +213,23 @@ class MultiHostIpam(TestBase):
                                                    network=self.network)
             i += 1
 
-        new_workload = host.create_workload("wldw-%s" % i,
-                                            image="workload",
-                                            network=self.network)
+        new_workload = host.create_workload(
+            f"wldw-{i}", image="workload", network=self.network
+        )
+
         assert netaddr.IPAddress(new_workload.ip) in ipv4_subnet
         original_ip = new_workload.ip
         while True:
             self.delete_workload(host, new_workload)
             i += 1
-            new_workload = host.create_workload("wldw-%s" % i,
-                                                image="workload",
-                                                network=self.network)
+            new_workload = host.create_workload(
+                f"wldw-{i}", image="workload", network=self.network
+            )
+
             assert netaddr.IPAddress(new_workload.ip) in ipv4_subnet
             if make_static_workload:
                 assert new_workload.ip != static_workload.ip, "IPAM assigned an IP which is " \
-                                                              "still in use!"
+                                                                  "still in use!"
 
             if new_workload.ip == original_ip:
                 # Used a /30 block size - so 4 addresses.
@@ -231,15 +238,15 @@ class MultiHostIpam(TestBase):
                 if make_static_workload:
                     poolsize -= 1
                 assert i >= poolsize, "Original IP was re-assigned before entire host pool " \
-                                      "was cycled through.  Hit after %s times" % i
+                                          "was cycled through.  Hit after %s times" % i
                 break
             if i > (len(ipv4_subnet) * 2):
                 assert False, "Cycled twice through pool - original IP still not assigned."
 
     @staticmethod
     def delete_workload(host, workload):
-        host.calicoctl("ipam release --ip=%s" % workload.ip)
-        host.execute("docker rm -f %s" % workload.name)
+        host.calicoctl(f"ipam release --ip={workload.ip}")
+        host.execute(f"docker rm -f {workload.name}")
         host.workloads.remove(workload)
 
 MultiHostIpam.batchnumber = 2  # Adds a batch number for parallel testing

@@ -7,9 +7,8 @@ VERSION_MASK = "__version__"
 
 
 def split_version(f):
-    m = re.match("(master|v[0-9]+\\.[0-9]+)/", f)
-    if m:
-        return m.group(1), f[:m.start(1)] + VERSION_MASK + f[m.end(1):-3]
+    if m := re.match("(master|v[0-9]+\\.[0-9]+)/", f):
+        return m[1], f[:m.start(1)] + VERSION_MASK + f[m.end(1):-3]
     return None, f[:-3]
 
 

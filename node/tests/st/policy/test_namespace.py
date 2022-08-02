@@ -308,27 +308,29 @@ class TestNamespace(TestBase):
     def add_namespace_ingress(self, ns, order, action, from_ns):
         ns_selector = "ns_profile == '%s'" % from_ns
 
-        self.add_policy({
-            'apiVersion': 'projectcalico.org/v3',
-            'kind': 'NetworkPolicy',
-            'metadata': {
-                'name': '%s-%s-%s-from-%s' % (ns, order, action.lower(), from_ns),
-                'namespace': ns
-            },
-            'spec': {
-                'order': order,
-                'ingress': [
-                    {
-                        'protocol': 'TCP',
-                        'source': {
-                            'namespaceSelector': ns_selector,
+        self.add_policy(
+            {
+                'apiVersion': 'projectcalico.org/v3',
+                'kind': 'NetworkPolicy',
+                'metadata': {
+                    'name': f'{ns}-{order}-{action.lower()}-from-{from_ns}',
+                    'namespace': ns,
+                },
+                'spec': {
+                    'order': order,
+                    'ingress': [
+                        {
+                            'protocol': 'TCP',
+                            'source': {
+                                'namespaceSelector': ns_selector,
+                            },
+                            'action': action.capitalize(),
                         },
-                        'action': action.capitalize(),
-                    },
-                ],
-                'egress': [],
+                    ],
+                    'egress': [],
+                },
             }
-        })
+        )
 
     def add_global_ingress(self, order, action, from_ns='all'):
         if from_ns != 'all':
@@ -343,20 +345,22 @@ class TestNamespace(TestBase):
                 'action': action.capitalize(),
             }
 
-        self.add_policy({
-            'apiVersion': 'projectcalico.org/v3',
-            'kind': 'GlobalNetworkPolicy',
-            'metadata': {
-                'name': 'global-%s-%s-from-%s' % (order, action.lower(), from_ns),
-            },
-            'spec': {
-                'order': order,
-                'ingress': [
-                    ingress_map,
-                ],
-                'egress': [],
+        self.add_policy(
+            {
+                'apiVersion': 'projectcalico.org/v3',
+                'kind': 'GlobalNetworkPolicy',
+                'metadata': {
+                    'name': f'global-{order}-{action.lower()}-from-{from_ns}'
+                },
+                'spec': {
+                    'order': order,
+                    'ingress': [
+                        ingress_map,
+                    ],
+                    'egress': [],
+                },
             }
-        })
+        )
 
     @classmethod
     def add_ns_profile(cls, ns):
@@ -367,9 +371,7 @@ class TestNamespace(TestBase):
                 'name': ns,
             },
             'spec': {
-                'labelsToApply': {
-                    '%s.ns_profile' % NAMESPACE_PREFIX: ns
-                },
+                'labelsToApply': {f'{NAMESPACE_PREFIX}.ns_profile': ns},
                 'ingress': [
                     {
                         'action': 'Allow',
@@ -380,8 +382,9 @@ class TestNamespace(TestBase):
                         'action': 'Allow',
                     },
                 ],
-            }
+            },
         }
+
         cls.host1._apply_resources(profile_data)
 
     def add_policy(self, policy_data):
@@ -394,15 +397,15 @@ class TestNamespace(TestBase):
         }
 
         for src in self.wl_nsa:
-            if not src == target:
+            if src != target:
                 assert_func[nsa_can](src, target)
 
         for src in self.wl_nsb:
-            if not src == target:
+            if src != target:
                 assert_func[nsb_can](src, target)
 
         for src in self.wl_default:
-            if not src == target:
+            if src != target:
                 assert_func[default_can](src, target)
 
     def assert_workload_can_access_workload(self, src_workload, target_workload):
@@ -412,8 +415,8 @@ class TestNamespace(TestBase):
             return
         _log.exception("workload %s with IP:%s failed to access workload %s on IP:%s",
                        src_workload.name, src_workload.ip, target_workload.name, target_workload.ip)
-        msg = ("workload %s with IP:%s failed to access workload %s on IP:%s" %
-               (src_workload.name, src_workload.ip, target_workload.name, target_workload.ip))
+        msg = f"workload {src_workload.name} with IP:{src_workload.ip} failed to access workload {target_workload.name} on IP:{target_workload.ip}"
+
 
         self.fail(msg)
 
@@ -424,8 +427,8 @@ class TestNamespace(TestBase):
             return
         _log.exception("workload %s with IP:%s can access workload %s on IP:%s",
                        src_workload.name, src_workload.ip, target_workload.name, target_workload.ip)
-        msg = ("workload %s with IP:%s can access workload %s on IP:%s" %
-               (src_workload.name, src_workload.ip, target_workload.name, target_workload.ip))
+        msg = f"workload {src_workload.name} with IP:{src_workload.ip} can access workload {target_workload.name} on IP:{target_workload.ip}"
+
 
         self.fail(msg)
 

@@ -42,7 +42,7 @@ class TestFVEtcdutils(unittest.TestCase):
     def setUp(self):
         super(TestFVEtcdutils, self).setUp()
         self.etcd_server_running = False
-        os.system("docker pull " + ETCD_IMAGE)
+        os.system(f"docker pull {ETCD_IMAGE}")
 
     def tearDown(self):
         self.stop_etcd_server()
@@ -59,7 +59,7 @@ class TestFVEtcdutils(unittest.TestCase):
     def wait_etcd_ready(self):
         self.assertTrue(self.etcd_server_running)
         ready = False
-        for ii in range(10):
+        for _ in range(10):
             try:
                 etcdv3.get_status()
                 ready = True
@@ -166,7 +166,7 @@ class TestFVEtcdutils(unittest.TestCase):
         for msg in debug_msgs:
             if msg == "Restarting etcd server":
                 seen_restart_msg = True
-            if msg == "Wrote round-trip key":
+            elif msg == "Wrote round-trip key":
                 if seen_restart_msg:
                     num_key_writes_after_restart += 1
                 else:

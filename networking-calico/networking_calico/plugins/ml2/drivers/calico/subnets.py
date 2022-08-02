@@ -44,10 +44,11 @@ class SubnetSyncer(ResourceSyncer):
         return etcdv3.get_prefix(datamodel_v2.subnet_dir(self.region_string))
 
     def get_all_from_neutron(self, context):
-        return dict((datamodel_v2.key_for_subnet(subnet['id'],
-                                                 self.region_string), subnet)
-                    for subnet in self.db.get_subnets(context)
-                    if subnet['enable_dhcp'])
+        return {
+            datamodel_v2.key_for_subnet(subnet['id'], self.region_string): subnet
+            for subnet in self.db.get_subnets(context)
+            if subnet['enable_dhcp']
+        }
 
     def neutron_to_etcd_write_data(self, subnet, context, reread=False):
         if reread:

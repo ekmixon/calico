@@ -14,10 +14,13 @@ EXCLUDED_IMAGES = ["calico/pilot-webhook", "calico/upgrade", "quay.io/coreos/fla
 
 EXPECTED_ARCHS = ["amd64", "arm64", "ppc64le"]
 
-with open("%s/_data/versions.yml" % DOCS_PATH) as f:
+with open(f"{DOCS_PATH}/_data/versions.yml") as f:
     versions = yaml.safe_load(f)
     RELEASE_VERSION = versions[0]["title"]
-    print("[INFO] using _data/versions.yaml, discovered version: %s" % RELEASE_VERSION)
+    print(
+        f"[INFO] using _data/versions.yaml, discovered version: {RELEASE_VERSION}"
+    )
+
 
 TAG_URL_TEMPL = (
     "https://github.com/projectcalico/{component}/releases/tag/{component_version}"
@@ -120,12 +123,11 @@ for component in components:
 
 unrolled_urls = []
 for component in components:
-    for url in component["urls"]:
-        unrolled_urls.append(url)
+    unrolled_urls.extend(iter(component["urls"]))
 
 
 @parameterized(unrolled_urls)
 def test_artifact_url(url):
     resp = requests.get(url, stream=True)
-    print("[INFO] %s: %s" % (resp.status_code, url))
+    print(f"[INFO] {resp.status_code}: {url}")
     assert resp.status_code == 200

@@ -145,7 +145,7 @@ def make_net_model(net_spec):
 
 def split_endpoint_name(name):
     parts = name.replace('--', '#').split('-')
-    return tuple([p.replace('#', '-') for p in parts])
+    return tuple(p.replace('#', '-') for p in parts)
 
 
 class CalicoEtcdWatcher(etcdutils.EtcdWatcher):
@@ -167,9 +167,12 @@ class CalicoEtcdWatcher(etcdutils.EtcdWatcher):
         self.suppress_dnsmasq_updates = False
 
         # Register the etcd paths that we need to watch.
-        self.register_path(workload_endpoint_prefix + "<name>",
-                           on_set=self.on_endpoint_set,
-                           on_del=self.on_endpoint_delete)
+        self.register_path(
+            f"{workload_endpoint_prefix}<name>",
+            on_set=self.on_endpoint_set,
+            on_del=self.on_endpoint_delete,
+        )
+
 
         # Networks for which Dnsmasq needs updating.
         self.dirty_networks = set()
@@ -242,7 +245,7 @@ class CalicoEtcdWatcher(etcdutils.EtcdWatcher):
         """
         try:
             hostname, orchestrator, workload_id, endpoint_id = \
-                split_endpoint_name(name)
+                    split_endpoint_name(name)
         except ValueError:
             # For some reason this endpoint's name does not have the expected
             # form.  Ignore it.
@@ -353,8 +356,7 @@ class CalicoEtcdWatcher(etcdutils.EtcdWatcher):
         needed_subnet_ids = set()
         net = None
         for fixed_ip in port['fixed_ips']:
-            subnet_id = fixed_ip.get('subnet_id')
-            if subnet_id:
+            if subnet_id := fixed_ip.get('subnet_id'):
                 needed_subnet_ids.add(subnet_id)
                 if not net:
                     net = self.agent.cache.get_network_by_subnet_id(subnet_id)
@@ -475,7 +477,7 @@ class CalicoEtcdWatcher(etcdutils.EtcdWatcher):
         """Handler for endpoint deletion."""
         try:
             hostname, orchestrator, workload_id, endpoint_id = \
-                split_endpoint_name(name)
+                    split_endpoint_name(name)
         except ValueError:
             # For some reason this endpoint's name does not have the expected
             # form.  Ignore it.
@@ -487,9 +489,7 @@ class CalicoEtcdWatcher(etcdutils.EtcdWatcher):
         # deleted is a local one; hence 'discard' instead of 'remove'.
         self.local_endpoint_ids.discard(endpoint_id)
 
-        # Find the corresponding port in the DHCP agent's cache.
-        port = self.agent.cache.get_port_by_id(endpoint_id)
-        if port:
+        if port := self.agent.cache.get_port_by_id(endpoint_id):
             LOG.debug("deleted port: %s", port)
             self.agent.cache.remove_port(port)
             self._update_dnsmasq(port.network_id)
@@ -529,9 +529,12 @@ class SubnetWatcher(etcdutils.EtcdWatcher):
     def __init__(self, endpoint_watcher, path):
         super(SubnetWatcher, self).__init__(path)
         self.endpoint_watcher = endpoint_watcher
-        self.register_path(path + "/<subnet_id>",
-                           on_set=self.on_subnet_set,
-                           on_del=self.on_subnet_del)
+        self.register_path(
+            f"{path}/<subnet_id>",
+            on_set=self.on_subnet_set,
+            on_del=self.on_subnet_del,
+        )
+
         self.subnets_by_id = {}
 
     def start(self):

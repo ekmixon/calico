@@ -79,15 +79,12 @@ class PolicySyncer(ResourceSyncer):
                                    mod_revision=mod_revision)
 
     def get_all_from_neutron(self, context):
-        return dict((SG_NAME_PREFIX + sg['id'], sg)
-                    for sg in self.db.get_security_groups(context))
+        return {
+            SG_NAME_PREFIX + sg['id']: sg
+            for sg in self.db.get_security_groups(context)
+        }
 
     def neutron_to_etcd_write_data(self, sg, context, reread=False):
-        if reread:
-            # We don't need to reread the SG row itself here, because we don't
-            # use any information from it, apart from its ID as a key for the
-            # following rules.
-            pass
         rules = self.db.get_security_group_rules(
             context,
             filters={'security_group_id': [sg['id']]}
@@ -122,7 +119,7 @@ def policy_spec(sgid, rules):
     return {
         'ingress': inbound_rules,
         'egress': outbound_rules,
-        'selector': 'has(%s)' % (SG_LABEL_PREFIX + sgid),
+        'selector': f'has({SG_LABEL_PREFIX + sgid})',
     }
 
 
@@ -133,11 +130,11 @@ def _neutron_rule_to_etcd_rule(rule):
     etcd format.
     """
     ethertype = rule['ethertype']
-    etcd_rule = {'action': 'Allow'}
+    etcd_rule = {
+        'action': 'Allow',
+        'ipVersion': {'IPv4': 4, 'IPv6': 6}[ethertype],
+    }
 
-    # Map the ethertype field from Neutron to etcd format.
-    etcd_rule['ipVersion'] = {'IPv4': 4,
-                              'IPv6': 6}[ethertype]
 
     # Map the protocol field from Neutron to etcd format.
     #
@@ -177,7 +174,7 @@ def _neutron_rule_to_etcd_rule(rule):
         etcd_rule['protocol'] = rule['protocol'].upper()
 
     port_spec = None
-    if rule['protocol'] == 'icmp' or rule['protocol'] == 'ipv6-icmp':
+    if rule['protocol'] in ['icmp', 'ipv6-icmp']:
         # OpenStack stashes the ICMP match criteria in
         # port_range_min/max.
         icmp_fields = {}
@@ -189,17 +186,13 @@ def _neutron_rule_to_etcd_rule(rule):
             icmp_fields['code'] = icmp_code
         if icmp_fields:
             etcd_rule['icmp'] = icmp_fields
+    elif rule['port_range_min'] == -1:
+        port_spec = None
+    elif rule['port_range_min'] == rule['port_range_max']:
+        if rule['port_range_min'] is not None:
+            port_spec = [rule['port_range_min']]
     else:
-        # src/dst_ports is a list in which each entry can be a
-        # single number, or a string describing a port range.
-        if rule['port_range_min'] == -1:
-            port_spec = None
-        elif rule['port_range_min'] == rule['port_range_max']:
-            if rule['port_range_min'] is not None:
-                port_spec = [rule['port_range_min']]
-        else:
-            port_spec = ['%s:%s' % (rule['port_range_min'],
-                                    rule['port_range_max'])]
+        port_spec = [f"{rule['port_range_min']}:{rule['port_range_max']}"]
 
     entity_rule = {}
     if rule['remote_group_id'] is not None:
@@ -207,7 +200,7 @@ def _neutron_rule_to_etcd_rule(rule):
                                                rule['remote_group_id'])
     if rule['remote_ip_prefix'] is not None:
         entity_rule['nets'] = [rule['remote_ip_prefix']]
-    LOG.debug("=> Entity rule %s" % entity_rule)
+    LOG.debug(f"=> Entity rule {entity_rule}")
 
     # Store in source or destination field of the overall rule.
     if entity_rule:
@@ -220,6 +213,6 @@ def _neutron_rule_to_etcd_rule(rule):
                 entity_rule['ports'] = port_spec
             etcd_rule['destination'] = entity_rule
 
-    LOG.debug("=> %s Calico rule %s" % (rule['direction'], etcd_rule))
+    LOG.debug(f"=> {rule['direction']} Calico rule {etcd_rule}")
 
     return etcd_rule

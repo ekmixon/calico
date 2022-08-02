@@ -102,7 +102,7 @@ class ResourceSyncer(object):
         LOG.info("Resync for %s; got etcd data (%s items), "
                  "getting data from neutron...",
                  self.resource_kind, len(etcd_resources))
-        with self.txn_from_context(context, "get-all-" + self.resource_kind):
+        with self.txn_from_context(context, f"get-all-{self.resource_kind}"):
             neutron_map = self.get_all_from_neutron(context)
 
         # The set of resource names that should exist and for which we've
@@ -121,8 +121,7 @@ class ResourceSyncer(object):
                 # Translate the Neutron resource to what we would write into
                 # etcd.  Take a transaction here in case the subclass method
                 # needs more Neutron DB reads.
-                with self.txn_from_context(context,
-                                           "update-" + self.resource_kind):
+                with self.txn_from_context(context, f"update-{self.resource_kind}"):
                     write_data = self.neutron_to_etcd_write_data(
                         neutron_map[name],
                         context,
@@ -159,8 +158,7 @@ class ResourceSyncer(object):
             if name in names_compared:
                 continue
 
-            with self.txn_from_context(context,
-                                       "create-" + self.resource_kind):
+            with self.txn_from_context(context, f"create-{self.resource_kind}"):
                 try:
                     # Reread the Neutron resource and translate it to what we
                     # would write into etcd.

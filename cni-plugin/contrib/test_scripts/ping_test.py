@@ -7,7 +7,7 @@ run_command(cont1, "date")
 run_command(cont1, "sleep 2")
 
 # The ping will only work if felix is running
-run_command(cont2, "ping %s" % ip)
+run_command(cont2, f"ping {ip}")
 
 delete_container(cont1)
 delete_container(cont2)

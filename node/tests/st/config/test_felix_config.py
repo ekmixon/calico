@@ -92,7 +92,10 @@ class TestFelixConfig(TestBase):
         self.run_failsafe(random, True)
 
         # Put default back for host1.
-        self.add_felix_failsafe_config("node.%s" % self.host1_hostname, default, "inbound")
+        self.add_felix_failsafe_config(
+            f"node.{self.host1_hostname}", default, "inbound"
+        )
+
         self.run_failsafe(default, True)
         self.run_failsafe(random, False)
 
@@ -130,7 +133,10 @@ class TestFelixConfig(TestBase):
         self.run_failsafe(random, True)
 
         # Put default back for host2.
-        self.add_felix_failsafe_config("node.%s" % self.host2_hostname, default, "outbound")
+        self.add_felix_failsafe_config(
+            f"node.{self.host2_hostname}", default, "outbound"
+        )
+
         self.run_failsafe(default, True)
         self.run_failsafe(random_no_2379, False)
 
@@ -150,7 +156,7 @@ class TestFelixConfig(TestBase):
         host3_hostname = host3.execute("hostname")
         host3.start_calico_node()
 
-        conf_name = "node.%s" % host3_hostname
+        conf_name = f"node.{host3_hostname}"
         default = "/var/log/calico/felix/current"
 
         # Check default log file is good.
@@ -225,7 +231,7 @@ class TestFelixConfig(TestBase):
         host3.start_calico_node(env_options="-e CALICO_DISABLE_FILE_LOGGING=true")
 
         # Wait for felix to start and get snapshot
-        conf_name = "node.%s" % host3_hostname
+        conf_name = f"node.{host3_hostname}"
         self.wait_for_felix(host3)
         self.log_screen_snapshot(host3, "snapshot")
 
@@ -260,7 +266,7 @@ class TestFelixConfig(TestBase):
 
     @staticmethod
     def log_screen_snapshot(host, snapshot):
-        cmd = "docker logs calico-node > %s 2>&1" % snapshot
+        cmd = f"docker logs calico-node > {snapshot} 2>&1"
         host.execute(cmd)
 
     @staticmethod
@@ -269,7 +275,7 @@ class TestFelixConfig(TestBase):
         host.execute(cmd)
 
         # busybox diff does not support -c option.
-        cmd = "diff %s tmp_snapshot > tmp_diff || exit 0" % snapshot
+        cmd = f"diff {snapshot} tmp_snapshot > tmp_diff || exit 0"
         host.execute(cmd)
         cmd = "grep \"^+\" tmp_diff > %s || exit 0" % diff_file  # Get real difference.
         host.execute(cmd)
@@ -286,7 +292,7 @@ class TestFelixConfig(TestBase):
 
     @staticmethod
     def empty_log_file(host, log_file):
-        cmd = "docker exec calico-node cat /dev/null > %s" % log_file
+        cmd = f"docker exec calico-node cat /dev/null > {log_file}"
         host.execute(cmd)
 
     def check_log_levels(self, host, log_file, levels, retries, snapshot=""):
@@ -316,23 +322,22 @@ class TestFelixConfig(TestBase):
         self.fail("Felix failed to start in 5 seconds.")
 
     def _get_check_file_func(self, host, expect, log_file, keyword="", snapshot=""):
-        func = partial(self.log_check_file, host, expect, log_file, keyword, snapshot)
-        return func
+        return partial(self.log_check_file, host, expect, log_file, keyword, snapshot)
 
     def log_check_file(self, host, expect, log_file, keyword="", snapshot=""):
         _log.info("Check log file %s, keywords %s, expect %s", log_file, keyword, expect)
-        if not snapshot == "":
+        if snapshot != "":
             _log.info("Work out the log_file with snapshot")
             # If snapshot is specified, log_file is a screen log.
             self.log_screen_diff(host, snapshot, log_file)
 
-        cmd = "test -e %s ; echo $?" % log_file
+        cmd = f"test -e {log_file} ; echo $?"
         result = host.execute(cmd)
-        if not result == "0":
-            self.fail(("Log file %s not exists." % log_file))
+        if result != "0":
+            self.fail(f"Log file {log_file} not exists.")
 
         if keyword != "":
-            cmd = "grep -c %s %s || exit 0" % (keyword, log_file)
+            cmd = f"grep -c {keyword} {log_file} || exit 0"
             result = host.execute(cmd, raise_exception_on_failure=False)
             _log.info("Check keywords result is %s", result)
             if result == "0" and expect:
@@ -366,16 +371,14 @@ class TestFelixConfig(TestBase):
         host_endpoint_data = {
             'apiVersion': 'projectcalico.org/v3',
             'kind': 'HostEndpoint',
-            'metadata': {
-                'name': 'host-int',
-                'labels': {'nodeEth': 'host'}
-            },
+            'metadata': {'name': 'host-int', 'labels': {'nodeEth': 'host'}},
             'spec': {
-                'node': '%s' % node_name,
+                'node': f'{node_name}',
                 'interfaceName': 'eth0',
                 'expectedIPs': [str(ip)],
-            }
+            },
         }
+
         self.host1.add_resource(host_endpoint_data)
 
     def add_felix_config(self, name, spec):
@@ -416,21 +419,22 @@ class TestFelixConfig(TestBase):
     @staticmethod
     def open_port(host, port, protocol="tcp"):
         protocol_opt = "-u" if protocol == "udp" else ""
-        cmd = "nc -l %s -p %s -e /bin/sh" % (protocol_opt, port)
+        cmd = f"nc -l {protocol_opt} -p {port} -e /bin/sh"
         host.execute(cmd, raise_exception_on_failure=True, daemon_mode=True)
 
     @staticmethod
     def close_port(host, port, protocol="tcp"):
         protocol_opt = "-u" if protocol == "udp" else ""
-        cmd = "nc -l %s -p %s -e /bin/sh" % (protocol_opt, port)
+        cmd = f"nc -l {protocol_opt} -p {port} -e /bin/sh"
         host.execute(cmd, raise_exception_on_failure=True, daemon_mode=True)
 
     def check_access_retry(self, expect_access, host_src, host_target, port, protocol="tcp"):
-        msg = (" from %s to %s:%s %s, expect access %s" %
-               (host_src.ip, host_target.ip, port, protocol, expect_access))
+        msg = f" from {host_src.ip} to {host_target.ip}:{port} {protocol}, expect access {expect_access}"
+
         for retry in range(3):
-            passed = self.check_access(expect_access, host_src, host_target, port, protocol)
-            if passed:
+            if passed := self.check_access(
+                expect_access, host_src, host_target, port, protocol
+            ):
                 _log.info("check access success!%s", msg)
                 return
             else:

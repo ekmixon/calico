@@ -27,8 +27,7 @@ if ETCD_SCHEME == "https":
                                 (ETCD_HOSTNAME_SSL, ETCD_CA, ETCD_CERT,
                                  ETCD_KEY)
 else:
-    ADDITIONAL_DOCKER_OPTIONS = "--cluster-store=etcd://%s:2379 " % \
-                                get_ip()
+    ADDITIONAL_DOCKER_OPTIONS = f"--cluster-store=etcd://{get_ip()}:2379 "
 
 class TestAutodetection(TestBase):
 
@@ -41,20 +40,16 @@ class TestAutodetection(TestBase):
         "first-found" and also "interface" and "can-reach" detection methods.
         """
         with DockerHost('host1',
-                        additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
-                        start_calico=False) as host1, \
-             DockerHost('host2',
-                        additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
-                        start_calico=False) as host2, \
-             DockerHost('host3',
-                        additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
-                        start_calico=False) as host3, \
-             DockerHost('host4',
-                        additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
-                        start_calico=False) as host4, \
-             DockerHost('host5',
-                        additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
-                        start_calico=False) as host5:
+                            additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
+                            start_calico=False) as host1, DockerHost('host2',
+                            additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
+                            start_calico=False) as host2, DockerHost('host3',
+                            additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
+                            start_calico=False) as host3, DockerHost('host4',
+                            additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
+                            start_calico=False) as host4, DockerHost('host5',
+                            additional_docker_options=ADDITIONAL_DOCKER_OPTIONS,
+                            start_calico=False) as host5:
 
             # Start the node on host1 using first-found auto-detection
             # method.
@@ -74,7 +69,9 @@ class TestAutodetection(TestBase):
             # Start the node on host2 using can-reach auto-detection method
             # using the IP address of host1.  This should succeed.
             host2.start_calico_node(
-                "--ip=autodetect --ip-autodetection-method=can-reach=" + host1.ip)
+                f"--ip=autodetect --ip-autodetection-method=can-reach={host1.ip}"
+            )
+
 
             # Attempt to start the node on host3 using interface auto-detection
             # method using a bogus interface name.  This should fail.

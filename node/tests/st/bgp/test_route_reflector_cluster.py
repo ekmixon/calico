@@ -76,20 +76,17 @@ class TestRouteReflectorCluster(TestBase):
         specific peerings.
         """
         with DockerHost('host1',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host1, \
-             DockerHost('host2',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host2, \
-             DockerHost('host3',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host3, \
-             RouteReflectorCluster(2, 2) as rrc:
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host1, DockerHost('host2',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host2, DockerHost('host3',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host3, RouteReflectorCluster(2, 2) as rrc:
 
             # Start both hosts using specific backends.
-            host1.start_calico_node("--backend=%s" % backend)
-            host2.start_calico_node("--backend=%s" % backend)
-            host3.start_calico_node("--backend=%s" % backend)
+            host1.start_calico_node(f"--backend={backend}")
+            host2.start_calico_node(f"--backend={backend}")
+            host3.start_calico_node(f"--backend={backend}")
 
             # Set the default AS number - as this is used by the RR mesh, and
             # turn off the node-to-node mesh (do this from any host).

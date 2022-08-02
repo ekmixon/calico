@@ -79,9 +79,12 @@ class StatusWatcher(etcdutils.EtcdWatcher):
         self._felix_live_rev = {}
 
         # Register for felix uptime updates.
-        self.register_path(status_path + "/<hostname>/status",
-                           on_set=self._on_status_set,
-                           on_del=self._on_status_del)
+        self.register_path(
+            f"{status_path}/<hostname>/status",
+            on_set=self._on_status_set,
+            on_del=self._on_status_del,
+        )
+
         # Register for per-port status updates.
         self.register_path(status_path + "/<hostname>/workload/openstack/"
                            "<workload>/endpoint/<endpoint>",

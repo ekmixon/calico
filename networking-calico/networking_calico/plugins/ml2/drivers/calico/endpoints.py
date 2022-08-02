@@ -127,9 +127,11 @@ class WorkloadEndpointSyncer(ResourceSyncer):
     def get_all_from_neutron(self, context):
         # TODO(lukasa): We could reduce the amount of data we load from Neutron
         # here by filtering in the get_ports call.
-        return dict((endpoint_name(port), port)
-                    for port in self.db.get_ports(context)
-                    if _port_is_endpoint_port(port))
+        return {
+            endpoint_name(port): port
+            for port in self.db.get_ports(context)
+            if _port_is_endpoint_port(port)
+        }
 
     def neutron_to_etcd_write_data(self, port, context, reread=False):
         if reread:
@@ -322,11 +324,8 @@ class WorkloadEndpointSyncer(ResourceSyncer):
 def endpoint_name(port):
     def escape_dashes(s):
         return s.replace("-", "--")
-    return "%s-openstack-%s-%s" % (
-        escape_dashes(port['binding:host_id']),
-        escape_dashes(port['device_id']),
-        escape_dashes(port['id']),
-    )
+
+    return f"{escape_dashes(port['binding:host_id'])}-openstack-{escape_dashes(port['device_id'])}-{escape_dashes(port['id'])}"
 
 
 def endpoint_labels(port, namespace):
@@ -388,22 +387,22 @@ def endpoint_spec(port):
     for aap in port.get('allowed_address_pairs', []):
         ip_addr = str(aap['ip_address'])
         if ':' in ip_addr:
-            ip_nets.append(ip_addr + '/128')
-            allowed_ips.append(ip_addr + '/128')
+            ip_nets.append(f'{ip_addr}/128')
+            allowed_ips.append(f'{ip_addr}/128')
         else:
-            ip_nets.append(ip_addr + '/32')
-            allowed_ips.append(ip_addr + '/32')
+            ip_nets.append(f'{ip_addr}/32')
+            allowed_ips.append(f'{ip_addr}/32')
 
     data['ipNetworks'] = ip_nets
     data['allowedIps'] = allowed_ips
 
-    ip_nats = []
-    for ip in port['floating_ips']:
-        ip_nats.append({
+    if ip_nats := [
+        {
             'internalIP': ip['int_ip'],
             'externalIP': ip['ext_ip'],
-        })
-    if ip_nats:
+        }
+        for ip in port['floating_ips']
+    ]:
         data['ipNATs'] = ip_nats
 
     # Return that data.
@@ -413,9 +412,7 @@ def endpoint_spec(port):
 def endpoint_annotations(port):
     annotations = {datamodel_v3.ANN_KEY_NETWORK_ID: port['network_id']}
 
-    # If the port has a DNS assignment, represent that as an FQDN annotation.
-    dns_assignment = port.get('dns_assignment')
-    if dns_assignment:
+    if dns_assignment := port.get('dns_assignment'):
         # Note: the Neutron server generates a list of assignment entries, one
         # for each fixed IP, but all with the same FQDN, for slightly
         # historical reasons.  We're fine getting the FQDN from the first
@@ -435,5 +432,5 @@ def _port_is_endpoint_port(port):
         return True
 
     # Otherwise log and return False.
-    LOG.debug("Not a VM port: %s" % port)
+    LOG.debug(f"Not a VM port: {port}")
     return False

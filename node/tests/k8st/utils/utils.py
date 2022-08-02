@@ -41,11 +41,11 @@ class DiagsCollector(object):
         kubectl("get deployments,pods,svc,endpoints --all-namespaces -o wide")
         for resource in ["node", "bgpconfig", "bgppeer", "gnp", "felixconfig"]:
             _log.info("")
-            calicoctl("get " + resource + " -o yaml")
+            calicoctl(f"get {resource} -o yaml")
         nodes, _, _ = node_info()
         for node in nodes:
             _log.info("")
-            run("docker exec " + node + " ip r")
+            run(f"docker exec {node} ip r")
         kubectl("logs -n kube-system -l k8s-app=calico-node")
         _log.info("===================================================")
         _log.info("============= COLLECTED DIAGS FOR TEST ============")
@@ -57,24 +57,24 @@ def start_external_node_with_bgp(name, bird_peer_config=None, bird6_peer_config=
     run("df -h")
 
     # Setup external node: use privileged mode for setting routes.
-    run("docker run -d --privileged --net=kind --name %s %s" % (name, ROUTER_IMAGE))
+    run(f"docker run -d --privileged --net=kind --name {name} {ROUTER_IMAGE}")
 
     # Check how much space there is inside the container.  We may need
     # to retry this, as it may take a while for the image to download
     # and the container to start running.
     while True:
         try:
-            run("docker exec %s df -h" % name)
+            run(f"docker exec {name} df -h")
             break
         except subprocess.CalledProcessError:
             _log.exception("Container not ready yet")
             time.sleep(20)
 
     # Install curl and iproute2.
-    run("docker exec %s apk add --no-cache curl iproute2" % name)
+    run(f"docker exec {name} apk add --no-cache curl iproute2")
 
     # Set ECMP hash algrithm to L4 for a proper load balancing between nodes.
-    run("docker exec %s sysctl -w net.ipv4.fib_multipath_hash_policy=1" % name)
+    run(f"docker exec {name} sysctl -w net.ipv4.fib_multipath_hash_policy=1")
 
     # Add "merge paths on" to the BIRD config.
     run("docker exec %s sed -i '/protocol kernel {/a merge paths on;' /etc/bird.conf" % name)
@@ -86,30 +86,33 @@ def start_external_node_with_bgp(name, bird_peer_config=None, bird6_peer_config=
         birdy_ip = output.strip()
         with open('peers.conf', 'w') as peerconfig:
             peerconfig.write(bird_peer_config.replace("ip@local", birdy_ip))
-        run("docker cp peers.conf %s:/etc/bird/peers.conf" % name)
+        run(f"docker cp peers.conf {name}:/etc/bird/peers.conf")
         run("rm peers.conf")
-        run("docker exec %s birdcl configure" % name)
+        run(f"docker exec {name} birdcl configure")
 
     elif bird6_peer_config:
         # Install desired peer config.
         birdy_ip = "2001:20::20"
-        run("docker exec %s sysctl -w net.ipv6.conf.all.disable_ipv6=0" % name)
-        run("docker exec %s sysctl -w net.ipv6.conf.all.forwarding=1" % name)
+        run(f"docker exec {name} sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+        run(f"docker exec {name} sysctl -w net.ipv6.conf.all.forwarding=1")
 
         # Try to set net.ipv6.fib_multipath_hash_policy to get IPv6
         # ECMP load balancing by 5-tuple, but allow it to fail as
         # older kernels (e.g. Semaphore v2) don't have that setting.
         # It doesn't actually matter as we aren't currently testing
         # IPv6 ECMP behaviour in detail.
-        run("docker exec %s sysctl -w net.ipv6.fib_multipath_hash_policy=1" % name,
-            allow_fail=True)
+        run(
+            f"docker exec {name} sysctl -w net.ipv6.fib_multipath_hash_policy=1",
+            allow_fail=True,
+        )
 
-        run("docker exec %s ip -6 a a %s/64 dev eth0" % (name, birdy_ip))
+
+        run(f"docker exec {name} ip -6 a a {birdy_ip}/64 dev eth0")
         with open('peers.conf', 'w') as peerconfig:
             peerconfig.write(bird6_peer_config.replace("ip@local", birdy_ip))
-        run("docker cp peers.conf %s:/etc/bird6/peers.conf" % name)
+        run(f"docker cp peers.conf {name}:/etc/bird6/peers.conf")
         run("rm peers.conf")
-        run("docker exec %s birdcl6 configure" % name)
+        run(f"docker exec {name} birdcl6 configure")
 
     return birdy_ip
 
@@ -196,20 +199,21 @@ def run(command, logerr=True, allow_fail=False):
 def curl(hostname, container="kube-node-extra"):
     if ':' in hostname:
         # It's an IPv6 address.
-        hostname = '[' + hostname + ']'
+        hostname = f'[{hostname}]'
 
-    cmd = "docker exec %s curl --connect-timeout 2 -m 3 %s" % (container,
-                                                               hostname)
+    cmd = f"docker exec {container} curl --connect-timeout 2 -m 3 {hostname}"
     return run(cmd)
 
 
 def kubectl(args, logerr=True, allow_fail=False):
-    return run("kubectl " + args, logerr=logerr, allow_fail=allow_fail)
+    return run(f"kubectl {args}", logerr=logerr, allow_fail=allow_fail)
 
 
 def calicoctl(args, allow_fail=False):
-    return kubectl("exec -i -n kube-system calicoctl -- /calicoctl --allow-version-mismatch " + args,
-                   allow_fail=allow_fail)
+    return kubectl(
+        f"exec -i -n kube-system calicoctl -- /calicoctl --allow-version-mismatch {args}",
+        allow_fail=allow_fail,
+    )
 
 
 def calicoctl_apply_dict(object_dict):
@@ -221,7 +225,7 @@ EOF
 
 def generate_unique_id(length, prefix=""):
     random_string = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
-    return "%s-%s" % (prefix, random_string)
+    return f"{prefix}-{random_string}"
 
 
 # We have to define and use this static map, from each node name to
@@ -238,16 +242,11 @@ ipv6_map = {
 
 
 def node_info():
-    nodes = []
-    ips = []
-    ip6s = []
-
     master_node = kubectl("get node --selector='node-role.kubernetes.io/master' -o jsonpath='{.items[0].metadata.name}'")
-    nodes.append(master_node)
-    ip6s.append(ipv6_map[master_node])
+    nodes = [master_node]
+    ip6s = [ipv6_map[master_node]]
     master_ip = kubectl("get node --selector='node-role.kubernetes.io/master' -o jsonpath='{.items[0].status.addresses[0].address}'")
-    ips.append(master_ip)
-
+    ips = [master_ip]
     for i in range(3):
         node = kubectl("get node --selector='!node-role.kubernetes.io/master' -o jsonpath='{.items[%d].metadata.name}'" % i)
         nodes.append(node)

@@ -31,20 +31,20 @@ import re
 for line in fileinput.input():
     m = re.search(r'(.* = .*)0x([0-9a-fA-F]+)', line)
     if m:
-        hex_str = m.group(2)
+        hex_str = m[2]
         x = int(hex_str, 16)
     else:
         m = re.search(r'(.* = (?:\(.*\))?)([0-9]+)', line)
         if m:
-            dec_str = m.group(2)
+            dec_str = m[2]
             x = int(dec_str)
         else:
             print(line.strip())
             continue
-    prefix = " " * len(m.group(1))
+    prefix = " " * len(m[1])
     s = "%x" % x
     if (len(s) % 2) == 1:
-        s = "0" + s
+        s = f"0{s}"
     out = ""
     while s:
         hex_pair = s[:2]

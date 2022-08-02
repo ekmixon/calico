@@ -96,10 +96,7 @@ class _TestPathDispatcherBase(unittest.TestCase):
 
     @property
     def unexpected_handlers(self):
-        if self.expected_handlers == "set":
-            return "delete"
-        else:
-            return "set"
+        return "delete" if self.expected_handlers == "set" else "set"
 
     def test_dispatch_root(self):
         self.assert_handled("/")
@@ -132,8 +129,7 @@ class _TestPathDispatcherBase(unittest.TestCase):
         self.dispatcher.handle_event(m_result)
         for handlers in self.handlers.values():
             for key, handler in handlers.items():
-                self.assertFalse(handler.called,
-                                 msg="Unexpected handler called: %s" % key)
+                self.assertFalse(handler.called, msg=f"Unexpected handler called: {key}")
 
 
 class TestDispatcherSet(_TestPathDispatcherBase):

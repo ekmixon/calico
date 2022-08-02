@@ -102,11 +102,10 @@ def get_region_string():
     """
     global _cached_region_string
     if _cached_region_string is None:
-        # Use [calico] openstack_region if configured.
         if cfg.CONF.calico.openstack_region:
             _validate_region(cfg.CONF.calico.openstack_region)
-            _cached_region_string = "%s%s" % (datamodel_v2.REGION_PREFIX,
-                                              cfg.CONF.calico.openstack_region)
+            _cached_region_string = f"{datamodel_v2.REGION_PREFIX}{cfg.CONF.calico.openstack_region}"
+
         else:
             _cached_region_string = datamodel_v2.NO_REGION
     return _cached_region_string

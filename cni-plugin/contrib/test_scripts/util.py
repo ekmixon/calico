@@ -9,7 +9,9 @@ import sys
 
 NETNS_ROOT = "/var/run/netns/"
 import os
-PLUGIN_LOCATION = os.path.dirname(os.path.realpath(__file__)) + "/../../bin/amd64/"
+PLUGIN_LOCATION = (
+    f"{os.path.dirname(os.path.realpath(__file__))}/../../bin/amd64/"
+)
 def create_container(extra_suffix=""):
     # Generate a random container_id
     container_id = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
@@ -58,7 +60,7 @@ def delete_container(container_id, extra_suffix=""):
 
     with open(sys.argv[1], 'r') as f:
         check_call(extra_suffix + plugin, stdin=f, env=os.environ, shell=True)
-    check_call("ip netns delete %s" % container_id, shell=True)
+    check_call(f"ip netns delete {container_id}", shell=True)
 
 def run_command(container_id, command):
-    check_call("ip netns exec %s %s" % (container_id, command), shell=True)
+    check_call(f"ip netns exec {container_id} {command}", shell=True)

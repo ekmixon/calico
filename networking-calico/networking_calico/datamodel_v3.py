@@ -31,8 +31,8 @@ INTERFACE_PREFIX = 'interfacePrefix'
 
 # Annotation keys.
 ANN_KEY_PREFIX = 'openstack.projectcalico.org/'
-ANN_KEY_FQDN = ANN_KEY_PREFIX + 'fqdn'
-ANN_KEY_NETWORK_ID = ANN_KEY_PREFIX + 'network-id'
+ANN_KEY_FQDN = f'{ANN_KEY_PREFIX}fqdn'
+ANN_KEY_NETWORK_ID = f'{ANN_KEY_PREFIX}network-id'
 
 # Namespace constants.
 NO_REGION_NAMESPACE = 'openstack'
@@ -237,15 +237,9 @@ def sanitize_label_name_value(name, max_length):
     maximum length.
     """
     name = re.sub('[^-_.A-Za-z0-9]', '_', name[:max_length])
-    # Ensure that the first character is alphanumeric, by deleting leading
-    # characters that are not alphanumeric.
-    m = re.match('^([^A-Za-z0-9]+)', name)
-    if m:
+    if m := re.match('^([^A-Za-z0-9]+)', name):
         name = name[m.end(1):]
-    # Ensure that the last character is alphanumeric, by deleting trailing
-    # characters that are not alphanumeric.
-    m = re.match('.*?([^A-Za-z0-9]+)$', name)
-    if m:
+    if m := re.match('.*?([^A-Za-z0-9]+)$', name):
         name = name[:m.start(1)]
 
     return name
@@ -254,9 +248,7 @@ def sanitize_label_name_value(name, max_length):
 def _is_namespaced(resource_kind):
     if resource_kind == "WorkloadEndpoint":
         return True
-    if resource_kind == "NetworkPolicy":
-        return True
-    return False
+    return resource_kind == "NetworkPolicy"
 
 
 def _plural(resource_kind):
@@ -264,7 +256,7 @@ def _plural(resource_kind):
         return "NetworkPolicies"
     if resource_kind == "GlobalNetworkPolicy":
         return "GlobalNetworkPolicies"
-    return resource_kind + "s"
+    return f"{resource_kind}s"
 
 
 def get_namespace(region_string):
@@ -278,13 +270,10 @@ def _build_key(resource_kind, namespace, name):
     kind_plural = _plural(resource_kind).lower()
     if _is_namespaced(resource_kind):
         assert namespace is not None
-        return "/calico/resources/v3/projectcalico.org/%s/%s/%s" % (
-            kind_plural, namespace, name
-        )
+        return f"/calico/resources/v3/projectcalico.org/{kind_plural}/{namespace}/{name}"
+
     else:
-        return "/calico/resources/v3/projectcalico.org/%s/%s" % (
-            kind_plural, name
-        )
+        return f"/calico/resources/v3/projectcalico.org/{kind_plural}/{name}"
 
 
 def _get_with_metadata(resource_kind, namespace, name):

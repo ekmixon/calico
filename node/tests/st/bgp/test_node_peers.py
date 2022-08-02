@@ -32,15 +32,14 @@ class TestNodePeers(TestBase):
         a set of per node peers.
         """
         with DockerHost('host1',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host1, \
-             DockerHost('host2',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host2:
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host1, DockerHost('host2',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host2:
 
             # Start both hosts using specific AS numbers.
-            host1.start_calico_node("--backend=%s --as=%s" % (backend, LARGE_AS_NUM))
-            host2.start_calico_node("--backend=%s --as=%s" % (backend, LARGE_AS_NUM))
+            host1.start_calico_node(f"--backend={backend} --as={LARGE_AS_NUM}")
+            host2.start_calico_node(f"--backend={backend} --as={LARGE_AS_NUM}")
 
             # Create a network and a couple of workloads on each host.
             network1 = host1.create_network("subnet1")

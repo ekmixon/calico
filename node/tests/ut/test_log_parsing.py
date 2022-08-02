@@ -33,8 +33,7 @@ if ETCD_SCHEME == "https":
                                 (ETCD_HOSTNAME_SSL, ETCD_CA, ETCD_CERT,
                                  ETCD_KEY)
 else:
-    ADDITIONAL_DOCKER_OPTIONS = "--cluster-store=etcd://%s:2379 " % \
-                                get_ip()
+    ADDITIONAL_DOCKER_OPTIONS = f"--cluster-store=etcd://{get_ip()}:2379 "
 
 felix_logfile = "/var/log/calico/felix/current"
 before_data = """2017-01-12 19:19:04.419 [INFO][87] ipip_mgr.go 75: Setting local IPv4 address on link. addr=192.168.151.0 link="tunl0"
@@ -135,7 +134,7 @@ class LogParsing(TestBase):
         self.__name__ = name
         _log.debug("\n")
         self.expect_errors = expect_error
-        self.hosts[0].execute("echo %s >> %s" % (log, felix_logfile))
+        self.hosts[0].execute(f"echo {log} >> {felix_logfile}")
 
 
 class IpNotFound(Exception):

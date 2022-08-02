@@ -18,6 +18,7 @@
 """
 Calico election code.
 """
+
 from etcd3gw.exceptions import Etcd3Exception
 import eventlet
 import greenlet
@@ -49,7 +50,7 @@ elector_opt = cfg.StrOpt(
 calico_config.register_options(cfg.CONF, additional_options=[elector_opt])
 
 
-ETCD_DELETE_ACTIONS = set(["delete", "expire", "compareAndDelete"])
+ETCD_DELETE_ACTIONS = {"delete", "expire", "compareAndDelete"}
 
 
 class RestartElection(Exception):
@@ -213,13 +214,13 @@ class Elector(object):
         if not match:
             LOG.warning("Unable to parse master ID: %r.", master_id)
             return
-        host = match.group("host")
-        pid = int(match.group("pid"))
+        host = match["host"]
+        pid = int(match["pid"])
         LOG.debug("Parsed key as host = %s, PID = %s", host, pid)
         if host == self._server_id:
             # Check if the PID is still running.
             LOG.debug("Previous master was on this server %s", host)
-            if os.path.exists("/proc/%s" % pid):
+            if os.path.exists(f"/proc/{pid}"):
                 LOG.debug("Master still running")
             else:
                 LOG.warning("Master was on this server but cannot find its "

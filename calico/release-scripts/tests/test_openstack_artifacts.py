@@ -20,7 +20,7 @@ RPM_URL_TEMPL = (
 )
 
 unrolled_urls = []
-with open("%s/_data/versions.yml" % DOCS_PATH) as f:
+with open(f"{DOCS_PATH}/_data/versions.yml") as f:
     versions = yaml.safe_load(f)
 for component in components:
     unrolled_urls.append(
@@ -32,35 +32,35 @@ for component in components:
             ].replace("v", ""),
         )
     )
-    for UBUNTU_VERSION in UBUNTU_VERSIONS:
-        unrolled_urls.append(
-            PPA_IMAGE_URL_TEMPL.format(
-                ppa_ver=PPA_VER,
-                component=component,
-                component_version=versions[0]["components"]["calico/node"][
-                    "version"
-                ].replace("v", ""),
-                ubuntu_version=UBUNTU_VERSION,
-            )
+    unrolled_urls.extend(
+        PPA_IMAGE_URL_TEMPL.format(
+            ppa_ver=PPA_VER,
+            component=component,
+            component_version=versions[0]["components"]["calico/node"][
+                "version"
+            ].replace("v", ""),
+            ubuntu_version=UBUNTU_VERSION,
         )
+        for UBUNTU_VERSION in UBUNTU_VERSIONS
+    )
 
 
 @parameterized(unrolled_urls)
 def test_artifact_url(url):
     resp = requests.get(url, stream=True)
-    print("[INFO] %s: %s" % (resp.status_code, url))
+    print(f"[INFO] {resp.status_code}: {url}")
     assert resp.status_code == 200
 
 
-with open("%s/_data/versions.yml" % DOCS_PATH) as f:
+with open(f"{DOCS_PATH}/_data/versions.yml") as f:
     versions = yaml.safe_load(f)
     NETWORKING_VER = versions[0]["components"]["networking-calico"]["version"]
-    print("[INFO] using ppa version: %s" % PPA_VER)
-    print("[INFO] using networking-calico version: %s" % NETWORKING_VER)
+    print(f"[INFO] using ppa version: {PPA_VER}")
+    print(f"[INFO] using networking-calico version: {NETWORKING_VER}")
 
 
 def test_rpm_repo_avail():
-    req = requests.get("http://binaries.projectcalico.org/rpm/%s" % PPA_VER)
+    req = requests.get(f"http://binaries.projectcalico.org/rpm/{PPA_VER}")
     assert req.status_code == 200
 
 
@@ -69,5 +69,5 @@ def test_networking_calico_version():
 
 
 def test_deb_rpm_versions_match():
-    regex = re.compile(".*%s" % NETWORKING_VER[1:4])
-    assert regex.match(PPA_VER), "%s did not match %s" % (PPA_VER, NETWORKING_VER[1:4])
+    regex = re.compile(f".*{NETWORKING_VER[1:4]}")
+    assert regex.match(PPA_VER), f"{PPA_VER} did not match {NETWORKING_VER[1:4]}"

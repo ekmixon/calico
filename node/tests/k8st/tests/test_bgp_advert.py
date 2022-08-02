@@ -163,7 +163,7 @@ EOF
 """)
 
         # Remove node-2's route-reflector config.
-        json_str = calicoctl("get node %s -o json" % self.nodes[2])
+        json_str = calicoctl(f"get node {self.nodes[2]} -o json")
         node_dict = json.loads(json_str)
         node_dict['metadata']['labels'].pop('i-am-a-route-reflector', '')
         node_dict['spec']['bgp'].pop('routeReflectorClusterID', '')
@@ -173,28 +173,32 @@ EOF
 """ % json.dumps(node_dict))
 
     def get_svc_cluster_ip(self, svc, ns):
-        return kubectl("get svc %s -n %s -o json | jq -r .spec.clusterIP" %
-                       (svc, ns)).strip()
+        return kubectl(
+            f"get svc {svc} -n {ns} -o json | jq -r .spec.clusterIP"
+        ).strip()
 
     def get_svc_loadbalancer_ip(self, svc, ns):
-        for i in range(10):
-            lb_ip = kubectl("get svc %s -n %s -o json | jq -r .status.loadBalancer.ingress[0].ip" %
-                       (svc, ns)).strip()
+        for _ in range(10):
+            lb_ip = kubectl(
+                f"get svc {svc} -n {ns} -o json | jq -r .status.loadBalancer.ingress[0].ip"
+            ).strip()
+
             if lb_ip != "null":
                 return lb_ip
             time.sleep(1)
-        raise Exception("No LoadBalancer IP found for service: %s/%s" % (ns, svc))
+        raise Exception(f"No LoadBalancer IP found for service: {ns}/{svc}")
 
     def assert_ecmp_routes(self, dst, via):
-        matchStr = dst + " proto bird "
+        matchStr = f"{dst} proto bird "
         # sort ips and construct match string for ECMP routes.
         for ip in sorted(via):
             matchStr += "\n\tnexthop via %s dev eth0 weight 1 " % ip
         retry_until_success(lambda: self.assertIn(matchStr, self.get_routes()))
 
     def get_svc_host_ip(self, svc, ns):
-        return kubectl("get po -l app=%s -n %s -o json | jq -r .items[0].status.hostIP" %
-                       (svc, ns)).strip()
+        return kubectl(
+            f"get po -l app={svc} -n {ns} -o json | jq -r .items[0].status.hostIP"
+        ).strip()
 
     def add_svc_external_ips(self, svc, ns, ips):
         ipsStr = ','.join('"{0}"'.format(ip) for ip in ips)
@@ -324,8 +328,8 @@ EOF
             self.scale_deployment(local_svc, self.ns, 4)
             self.wait_for_deployment(local_svc, self.ns)
             self.assert_ecmp_routes(local_svc_ip, [self.ips[1], self.ips[2], self.ips[3]])
-            for i in range(attempts):
-              retry_until_success(curl, function_args=[local_svc_ip])
+            for _ in range(attempts):
+                retry_until_success(curl, function_args=[local_svc_ip])
 
             # Delete both services.
             self.delete_and_confirm(local_svc, "svc", self.ns)
@@ -386,9 +390,9 @@ EOF
             retry_until_success(lambda: self.assertNotIn(cluster_svc_ip, self.get_routes()))
 
             # Connectivity should always succeed.
-            for i in range(attempts):
-              retry_until_success(curl, function_args=[local_svc_ip])
-              retry_until_success(curl, function_args=[cluster_svc_ip])
+            for _ in range(attempts):
+                retry_until_success(curl, function_args=[local_svc_ip])
+                retry_until_success(curl, function_args=[cluster_svc_ip])
 
             # Scale local service to 4 replicas
             self.scale_deployment(local_svc, self.ns, 4)
@@ -400,13 +404,16 @@ EOF
             # The cluster CIDR should be advertised from all nodes.
             self.assert_ecmp_routes(local_svc_ip, [self.ips[1], self.ips[2], self.ips[3]])
             self.assert_ecmp_routes(cluster_cidr, [self.ips[0], self.ips[1], self.ips[2], self.ips[3]])
-            for i in range(attempts):
-              retry_until_success(curl, function_args=[local_svc_ip])
+            for _ in range(attempts):
+                retry_until_success(curl, function_args=[local_svc_ip])
 
             # Label one node in order to exclude it from service advertisement.
             # After this, we should expect that all routes from that node are
             # withdrawn.
-            kubectl("label node %s node.kubernetes.io/exclude-from-external-load-balancers=true" % self.nodes[1])
+            kubectl(
+                f"label node {self.nodes[1]} node.kubernetes.io/exclude-from-external-load-balancers=true"
+            )
+
 
             # Assert routes are correct and services are accessible.
             # It should no longer have a route via self.nodes[1]
@@ -418,9 +425,9 @@ EOF
             self.assert_ecmp_routes(external_ip_cidr, [self.ips[0], self.ips[2], self.ips[3]])
 
             # Should still be reachable through other nodes.
-            for i in range(attempts):
-              retry_until_success(curl, function_args=[local_svc_ip])
-              retry_until_success(curl, function_args=[cluster_svc_ip])
+            for _ in range(attempts):
+                retry_until_success(curl, function_args=[local_svc_ip])
+                retry_until_success(curl, function_args=[cluster_svc_ip])
 
             # Delete the local service, confirm that it is no longer advertised.
             self.delete_and_confirm(local_svc, "svc", self.ns)
@@ -432,8 +439,8 @@ EOF
             self.wait_until_exists(local_svc, "svc", self.ns)
             local_svc_ip = self.get_svc_cluster_ip(local_svc, self.ns)
             self.assert_ecmp_routes(local_svc_ip, [self.ips[2], self.ips[3]])
-            for i in range(attempts):
-              retry_until_success(curl, function_args=[local_svc_ip])
+            for _ in range(attempts):
+                retry_until_success(curl, function_args=[local_svc_ip])
 
             # Add an external IP to the local svc and assert it follows the same
             # advertisement rules.
@@ -443,12 +450,15 @@ EOF
 
             # Enable the excluded node. Assert that the node starts
             # advertising service routes again.
-            kubectl("label node %s node.kubernetes.io/exclude-from-external-load-balancers=false --overwrite" % self.nodes[1])
+            kubectl(
+                f"label node {self.nodes[1]} node.kubernetes.io/exclude-from-external-load-balancers=false --overwrite"
+            )
+
             self.assert_ecmp_routes(local_svc_ip, [self.ips[1], self.ips[2], self.ips[3]])
             self.assert_ecmp_routes(local_svc_external_ip, [self.ips[1], self.ips[2], self.ips[3]])
             self.assert_ecmp_routes(cluster_cidr, [self.ips[0], self.ips[1], self.ips[2], self.ips[3]])
-            for i in range(attempts):
-              retry_until_success(curl, function_args=[local_svc_ip])
+            for _ in range(attempts):
+                retry_until_success(curl, function_args=[local_svc_ip])
 
             # Delete both services.
             self.delete_and_confirm(local_svc, "svc", self.ns)
@@ -529,8 +539,14 @@ EOF
             self.add_svc_external_ips(cluster_svc, self.ns, [cluster_svc_external_ip])
 
             # Verify that external IPs for local service is advertised but not the cluster service.
-            local_svc_externalips_route = "%s via %s" % (local_svc_external_ip, local_svc_host_ip)
-            cluster_svc_externalips_route = "%s via %s" % (cluster_svc_external_ip, cluster_svc_host_ip)
+            local_svc_externalips_route = (
+                f"{local_svc_external_ip} via {local_svc_host_ip}"
+            )
+
+            cluster_svc_externalips_route = (
+                f"{cluster_svc_external_ip} via {cluster_svc_host_ip}"
+            )
+
             retry_until_success(lambda: self.assertIn(local_svc_externalips_route, self.get_routes()))
             retry_until_success(lambda: self.assertNotIn(cluster_svc_externalips_route, self.get_routes()))
 
@@ -592,8 +608,8 @@ EOF
             cluster_svc_host_ip = self.get_svc_host_ip(cluster_svc, self.ns)
 
             # Verify that LB IP for local service is advertised but not the cluster service.
-            local_svc_lb_route = "%s via %s" % (local_lb_ip, local_svc_host_ip)
-            cluster_svc_lb_route = "%s via %s" % (cluster_lb_ip, cluster_svc_host_ip)
+            local_svc_lb_route = f"{local_lb_ip} via {local_svc_host_ip}"
+            cluster_svc_lb_route = f"{cluster_lb_ip} via {cluster_svc_host_ip}"
             retry_until_success(lambda: self.assertIn(local_svc_lb_route, self.get_routes()))
             retry_until_success(lambda: self.assertNotIn(cluster_svc_lb_route, self.get_routes()))
 
@@ -696,12 +712,12 @@ EOF
             # Create many more services which select this deployment.
             num_svc = 300
             for i in range(num_svc):
-                name = "nginx-svc-%s" % i
+                name = f"nginx-svc-{i}"
                 self.create_service(name, local_svc, self.ns, 80)
 
             # Get all of their IPs.
             for i in range(num_svc):
-                name = "nginx-svc-%s" % i
+                name = f"nginx-svc-{i}"
                 cluster_ips.append(self.get_svc_cluster_ip(name, self.ns))
 
             # Assert they are all advertised to the other node. This should happen
@@ -711,6 +727,7 @@ EOF
                 routes = self.get_routes()
                 for cip in cluster_ips:
                     self.assertIn(cip, routes)
+
             retry_until_success(check_routes_advertised, retries=3, wait_time=5)
 
             # Scale to 0 replicas, assert all routes are removed.
@@ -720,6 +737,7 @@ EOF
                 routes = self.get_routes()
                 for cip in cluster_ips:
                     self.assertNotIn(cip, routes)
+
             retry_until_success(check_routes_gone, retries=10, wait_time=5)
 
 
@@ -808,7 +826,7 @@ EOF
         calicoctl("get bgpconfigs -o yaml")
 
         # Update the node-2 to behave as a route-reflector
-        json_str = calicoctl("get node %s -o json" % self.nodes[2])
+        json_str = calicoctl(f"get node {self.nodes[2]} -o json")
         node_dict = json.loads(json_str)
         node_dict['metadata']['labels']['i-am-a-route-reflector'] = 'true'
         node_dict['spec']['bgp']['routeReflectorClusterID'] = '224.0.0.1'

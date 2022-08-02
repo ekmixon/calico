@@ -44,7 +44,7 @@ class TestCalicoctlCommands(TestBase):
         # exact get and a list query.
         rc = calicoctl("create", data=ippool_name2_rev1_v6)
         rc.assert_no_error()
-        rc = calicoctl("get ippool %s -o yaml" % name(ippool_name2_rev1_v6))
+        rc = calicoctl(f"get ippool {name(ippool_name2_rev1_v6)} -o yaml")
         rc.assert_data(ippool_name2_rev1_v6)
         rc = calicoctl("get ippool -o yaml")
         rc.assert_list("IPPool", [ippool_name2_rev1_v6])
@@ -53,19 +53,19 @@ class TestCalicoctlCommands(TestBase):
         # get, and a list query.
         rc = calicoctl("create", data=ippool_name1_rev1_v4)
         rc.assert_no_error()
-        rc = calicoctl("get ippool %s -o yaml" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"get ippool {name(ippool_name1_rev1_v4)} -o yaml")
         rc.assert_data(ippool_name1_rev1_v4)
         rc = calicoctl("get ippool -o yaml")
         rc.assert_list("IPPool", [ippool_name1_rev1_v4, ippool_name2_rev1_v6])
 
         # Check correct rendering of the table format.
-        rc = calicoctl("get ippool %s" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"get ippool {name(ippool_name1_rev1_v4)}")
         rc.assert_output_equals(ippool_name1_rev1_table)
-        rc = calicoctl("get ippool %s -o wide" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"get ippool {name(ippool_name1_rev1_v4)} -o wide")
         rc.assert_output_equals(ippool_name1_rev1_wide_table)
 
         # Remove both the ipv4 pool and ipv6 pool by CLI options and by file.
-        rc = calicoctl("delete ippool %s" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"delete ippool {name(ippool_name1_rev1_v4)}")
         rc.assert_no_error()
         rc = calicoctl("delete", ippool_name2_rev1_v6)
         rc.assert_no_error()
@@ -75,7 +75,7 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_empty_list("IPPool")
 
         # Assert that deleting the pool again fails.
-        rc = calicoctl("delete ippool %s" % name(ippool_name2_rev1_v6))
+        rc = calicoctl(f"delete ippool {name(ippool_name2_rev1_v6)}")
         rc.assert_error(text=NOT_FOUND)
 
     def test_no_config(self):
@@ -115,14 +115,20 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_no_error()
 
         # Get the 2 resources by name
-        rc = calicoctl("get ippool %s %s" % (name(ippool_name1_rev1_v4), name(ippool_name2_rev1_v6)))
+        rc = calicoctl(
+            f"get ippool {name(ippool_name1_rev1_v4)} {name(ippool_name2_rev1_v6)}"
+        )
+
         rc.assert_no_error()
         rc.assert_output_equals(ippool_name1_rev1_table + "   \n\n" + ippool_name2_rev1_table)
 
         rcNoErr = rc
 
         # Get the 2 + one that does not exist
-        rc = calicoctl("get ippool %s %s %s" % (name(ippool_name1_rev1_v4), "blah", name(ippool_name2_rev1_v6)))
+        rc = calicoctl(
+            f"get ippool {name(ippool_name1_rev1_v4)} blah {name(ippool_name2_rev1_v6)}"
+        )
+
         rc.assert_error()
         rc.assert_output_equals(ippool_name1_rev1_table +
                 "   \n\n" +
@@ -130,15 +136,21 @@ class TestCalicoctlCommands(TestBase):
                 "      \n\n" +
                 "resource does not exist: IPPool(blah) with error: <nil>\n")
 
-        rc = calicoctl("get ippool %s %s %s" % (name(ippool_name1_rev1_v4), "blah", name(ippool_name2_rev1_v6)),
-                only_stdout=True)
+        rc = calicoctl(
+            f"get ippool {name(ippool_name1_rev1_v4)} blah {name(ippool_name2_rev1_v6)}",
+            only_stdout=True,
+        )
+
 
         # Check that the output with no errors and with some errors equal for
         # the good cases (XXX some weird benign printer whitespaces at the end)
         rc.assert_output_equals(rcNoErr.output + "      \n\n")
 
         # Delete both by name
-        rc = calicoctl("delete ippool %s %s" % (name(ippool_name1_rev1_v4), name(ippool_name2_rev1_v6)))
+        rc = calicoctl(
+            f"delete ippool {name(ippool_name1_rev1_v4)} {name(ippool_name2_rev1_v6)}"
+        )
+
         rc.assert_no_error()
 
         # Assert pools are now deleted
@@ -152,8 +164,10 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_no_error()
 
         # Delete the 2 + one that does not exist
-        rc = calicoctl("delete ippool %s %s %s" %
-                (name(ippool_name1_rev1_v4), "blah", name(ippool_name2_rev1_v6)))
+        rc = calicoctl(
+            f"delete ippool {name(ippool_name1_rev1_v4)} blah {name(ippool_name2_rev1_v6)}"
+        )
+
         rc.assert_error()
 
         # Assert pools are now deleted
@@ -216,7 +230,7 @@ class TestCalicoctlCommands(TestBase):
         # version.
         rc = calicoctl("create", data=bgppeer_name1_rev1_v4)
         rc.assert_no_error()
-        rc = calicoctl("get bgppeer %s -o yaml" % name(bgppeer_name1_rev1_v4))
+        rc = calicoctl(f"get bgppeer {name(bgppeer_name1_rev1_v4)} -o yaml")
         rc.assert_no_error()
         rev0 = rc.decoded
 
@@ -224,7 +238,7 @@ class TestCalicoctlCommands(TestBase):
         # the same.
         rc = calicoctl("apply", data=bgppeer_name1_rev2_v4)
         rc.assert_no_error()
-        rc = calicoctl("get bgppeer %s -o yaml" % name(bgppeer_name1_rev2_v4))
+        rc = calicoctl(f"get bgppeer {name(bgppeer_name1_rev2_v4)} -o yaml")
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotEqual(rev0['metadata']['resourceVersion'], rev1['metadata']['resourceVersion'])
@@ -247,8 +261,7 @@ class TestCalicoctlCommands(TestBase):
         # resource version.
         rc = calicoctl("create", data=networkpolicy_name1_rev1)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get networkpolicy %s -o yaml" % name(networkpolicy_name1_rev1))
+        rc = calicoctl(f"get networkpolicy {name(networkpolicy_name1_rev1)} -o yaml")
         rc.assert_no_error()
         rev0 = rc.decoded
 
@@ -256,8 +269,7 @@ class TestCalicoctlCommands(TestBase):
         # assert the resource version is not the same.
         rc = calicoctl("replace", data=networkpolicy_name1_rev2)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get networkpolicy %s -o yaml" % name(networkpolicy_name1_rev2))
+        rc = calicoctl(f"get networkpolicy {name(networkpolicy_name1_rev2)} -o yaml")
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotEqual(rev0['metadata']['resourceVersion'], rev1['metadata']['resourceVersion'])
@@ -272,7 +284,7 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_no_error()
 
         # Delete the resource by name (i.e. without using a resource version).
-        rc = calicoctl("delete networkpolicy %s" % name(rev0))
+        rc = calicoctl(f"delete networkpolicy {name(rev0)}")
         rc.assert_no_error()
 
         # Attempt to replace the (now deleted) resource.
@@ -323,14 +335,12 @@ class TestCalicoctlCommands(TestBase):
 
         # Use apply to create a new Host Endpoint and get it to determine the
         # current resource version (first checking that it doesn't exist).
-        rc = calicoctl(
-            "get hostendpoint %s -o yaml" % name(hostendpoint_name1_rev1))
+        rc = calicoctl(f"get hostendpoint {name(hostendpoint_name1_rev1)} -o yaml")
         rc.assert_error(text=NOT_FOUND)
 
         rc = calicoctl("apply", data=hostendpoint_name1_rev1)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get hostendpoint %s -o yaml" % name(hostendpoint_name1_rev1))
+        rc = calicoctl(f"get hostendpoint {name(hostendpoint_name1_rev1)} -o yaml")
         rc.assert_no_error()
         rev0 = rc.decoded
 
@@ -338,8 +348,7 @@ class TestCalicoctlCommands(TestBase):
         # assert the resource version is not the same.
         rc = calicoctl("apply", data=hostendpoint_name1_rev2)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get hostendpoint %s -o yaml" % name(hostendpoint_name1_rev2))
+        rc = calicoctl(f"get hostendpoint {name(hostendpoint_name1_rev2)} -o yaml")
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotEqual(rev0['metadata']['resourceVersion'], rev1['metadata']['resourceVersion'])
@@ -354,7 +363,7 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_no_error()
 
         # Delete the resource without using a resource version.
-        rc = calicoctl("delete hostendpoint %s" % name(rev0))
+        rc = calicoctl(f"delete hostendpoint {name(rev0)}")
         rc.assert_no_error()
 
     def test_json(self):
@@ -365,21 +374,21 @@ class TestCalicoctlCommands(TestBase):
         # data was stored (using JSON input/output).
         rc = calicoctl("create", data=profile_name1_rev1, format="json")
         rc.assert_no_error()
-        rc = calicoctl("get profile %s -o json" % name(profile_name1_rev1))
+        rc = calicoctl(f"get profile {name(profile_name1_rev1)} -o json")
         rc.assert_data(profile_name1_rev1, format="json")
 
         # Use apply to update the profile and get the profile to check the
         # data was stored (using JSON input/output).
         rc = calicoctl("apply", data=profile_name1_rev2, format="json")
         rc.assert_no_error()
-        rc = calicoctl("get profile %s -o json" % name(profile_name1_rev1))
+        rc = calicoctl(f"get profile {name(profile_name1_rev1)} -o json")
         rc.assert_data(profile_name1_rev2, format="json")
 
         # Use replace to update the profile and get the profile to check the
         # data was stored (using JSON input/output).
         rc = calicoctl("replace", data=profile_name1_rev1, format="json")
         rc.assert_no_error()
-        rc = calicoctl("get profile %s -o json" % name(profile_name1_rev1))
+        rc = calicoctl(f"get profile {name(profile_name1_rev1)} -o json")
         rc.assert_data(profile_name1_rev1, format="json")
 
         # Use delete to delete the profile (using JSON input).
@@ -395,21 +404,30 @@ class TestCalicoctlCommands(TestBase):
         # data was stored (using JSON input/output).
         rc = calicoctl("create", data=globalnetworkpolicy_name1_rev1, format="json", load_as_stdin=True)
         rc.assert_no_error()
-        rc = calicoctl("get globalnetworkpolicy %s -o json" % name(globalnetworkpolicy_name1_rev1))
+        rc = calicoctl(
+            f"get globalnetworkpolicy {name(globalnetworkpolicy_name1_rev1)} -o json"
+        )
+
         rc.assert_data(globalnetworkpolicy_name1_rev1, format="json")
 
         # Use apply to update the GlobalNetworkPolicy and get the resource to check the
         # data was stored (using YAML input/output).
         rc = calicoctl("apply", data=globalnetworkpolicy_name1_rev2, format="yaml", load_as_stdin=True)
         rc.assert_no_error()
-        rc = calicoctl("get globalnetworkpolicy %s -o yaml" % name(globalnetworkpolicy_name1_rev1))
+        rc = calicoctl(
+            f"get globalnetworkpolicy {name(globalnetworkpolicy_name1_rev1)} -o yaml"
+        )
+
         rc.assert_data(globalnetworkpolicy_name1_rev2, format="yaml")
 
         # Use replace to update the GlobalNetworkPolicy and get the resource to check the
         # data was stored (using JSON input/output).
         rc = calicoctl("replace", data=globalnetworkpolicy_name1_rev1, format="json", load_as_stdin=True)
         rc.assert_no_error()
-        rc = calicoctl("get globalnetworkpolicy %s -o json" % name(globalnetworkpolicy_name1_rev1))
+        rc = calicoctl(
+            f"get globalnetworkpolicy {name(globalnetworkpolicy_name1_rev1)} -o json"
+        )
+
         rc.assert_data(globalnetworkpolicy_name1_rev1, format="json")
 
         # Use delete to delete the GlobalNetworkPolicy (using YAML input).
@@ -440,7 +458,10 @@ class TestCalicoctlCommands(TestBase):
         # This tests a mix of List and non-list types in the same file.
         # We use the data returned from the get since this should be able to
         # be used directly as input into the next command.
-        rc = calicoctl("get globalnetworkpolicy %s -o yaml" % name(globalnetworkpolicy_name1_rev1))
+        rc = calicoctl(
+            f"get globalnetworkpolicy {name(globalnetworkpolicy_name1_rev1)} -o yaml"
+        )
+
         rc.assert_data(globalnetworkpolicy_name1_rev1)
         gnp = rc.decoded
 
@@ -507,23 +528,26 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_no_error()
 
         # Get the resource type as normal.
-        rc = calicoctl("get %s" % kind)
+        rc = calicoctl(f"get {kind}")
         rc.assert_no_error()
-        rc = calicoctl("get %s -o wide" % kind)
+        rc = calicoctl(f"get {kind} -o wide")
         rc.assert_no_error()
 
         # Get the resource with name1 and namespace2.
         # For non-namespaced resources this will error.
-        rc = calicoctl("get %s %s --namespace default -o yaml" % (kind, data1['metadata']['name']))
+        rc = calicoctl(
+            f"get {kind} {data1['metadata']['name']} --namespace default -o yaml"
+        )
+
         rc.assert_error(NOT_NAMESPACED)
 
         # Get the resource type for all namespaces.
         # For non-namespaced resources this will error.
-        rc = calicoctl("get %s --all-namespaces -o yaml" % kind)
+        rc = calicoctl(f"get {kind} --all-namespaces -o yaml")
         rc.assert_error(NOT_NAMESPACED)
         # Get the resource type for all namespaces.
         # For non-namespaced resources this will error.
-        rc = calicoctl("get %s --all-namespaces -o yaml" % kind)
+        rc = calicoctl(f"get {kind} --all-namespaces -o yaml")
         rc.assert_error(NOT_NAMESPACED)
 
         # Delete the resource
@@ -538,7 +562,7 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_no_error()
 
         kind = ipresv_name1_rev1_v4['kind']
-        rc = calicoctl("get %s -o wide" % kind)
+        rc = calicoctl(f"get {kind} -o wide")
 
         rc.assert_no_error()
         rc.assert_output_contains("10.0.1.0/24,11.0.0.1/32")
@@ -551,7 +575,7 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_no_error()
 
         kind = ipresv_name1_rev1_v4['kind']
-        rc = calicoctl("get %s -o wide" % kind)
+        rc = calicoctl(f"get {kind} -o wide")
 
         rc.assert_no_error()
         rc.assert_output_contains("10.0.0.0/28,10.0.1.0/28,10.0.2.0/28,10.0.3.0/28,10.0.4.0/28,10.0.5.0/28,10.0....")
@@ -569,9 +593,9 @@ class TestCalicoctlCommands(TestBase):
 
         kind = data['kind']
         if kind == "GlobalNetworkSet":
-            rc = calicoctl("get %s -o wide" % kind)
+            rc = calicoctl(f"get {kind} -o wide")
         else:
-            rc = calicoctl("get %s -o wide -n %s" % (kind, data['metadata']['namespace']))
+            rc = calicoctl(f"get {kind} -o wide -n {data['metadata']['namespace']}")
 
         rc.assert_no_error()
         rc.assert_output_contains("10.0.0.0/28,10.0.1.0/28,10.0.2.0/28,10.0.3.0/28,10.0.4.0/28,10.0.5.0/28,10.0....")
@@ -587,7 +611,7 @@ class TestCalicoctlCommands(TestBase):
         rc = calicoctl("create", data)
         rc.assert_no_error()
 
-        rc = calicoctl("get %s -o wide" % data['kind'])
+        rc = calicoctl(f"get {data['kind']} -o wide")
         rc.assert_no_error()
         rc.assert_output_contains("10.0.0.1,11.0.0.0/16,feed:beef::1,dead:beef::96")
 
@@ -609,7 +633,11 @@ class TestCalicoctlCommands(TestBase):
         # Create resource with name1 and with name2.
         # Leave the first namespace blank and the second set to
         # namespace2 for the actual create request.
-        if kind == "WorkloadEndpoint":
+        if kind == "IPPool":
+            data1['metadata']['name'] = "name1"
+            data2['metadata']['name'] = "name2"
+            data2['spec']['cidr'] = "10.10.1.0/24"
+        elif kind == "WorkloadEndpoint":
             # The validation in libcalico-go WorkloadEndpoint checks the
             # construction of the name so keep the name on the workloadendpoint.
 
@@ -619,13 +647,9 @@ class TestCalicoctlCommands(TestBase):
 
             # Strip off the last character (the zero in eth0) and replace it
             # with a 1
-            data2['metadata']['name'] = data1['metadata']['name'][:len(data1['metadata']['name'])-1] + "1"
+            data2['metadata']['name'] = data1['metadata']['name'][:-1] + "1"
             # Change endpoint to eth1 so the validation works on the WEP
             data2['spec']['endpoint'] = "eth1"
-        elif kind == "IPPool":
-            data1['metadata']['name'] = "name1"
-            data2['metadata']['name'] = "name2"
-            data2['spec']['cidr'] = "10.10.1.0/24"
         else:
             data1['metadata']['name'] = "name1"
             data2['metadata']['name'] = "name2"
@@ -649,7 +673,10 @@ class TestCalicoctlCommands(TestBase):
         # Get the resource with name1 and default namespace.  For a namespaced
         # resource this should match the modified data to default the
         # namespace.
-        rc = calicoctl("get %s %s --namespace default -o yaml" % (kind, data1['metadata']['name']))
+        rc = calicoctl(
+            f"get {kind} {data1['metadata']['name']} --namespace default -o yaml"
+        )
+
         rc.assert_data(data1)
 
         if kind == "WorkloadEndpoint":
@@ -657,17 +684,17 @@ class TestCalicoctlCommands(TestBase):
 
         # Get the resource type for all namespaces.  For a namespaced resource
         # this will return everything.
-        rc = calicoctl("get %s --all-namespaces -o yaml" % kind)
+        rc = calicoctl(f"get {kind} --all-namespaces -o yaml")
         rc.assert_list(kind, [data1, data2])
 
         # For namespaced resources, if you do a list without specifying the
         # namespace we'll just get the default namespace.
-        rc = calicoctl("get %s -o yaml" % kind)
+        rc = calicoctl(f"get {kind} -o yaml")
         rc.assert_list(kind, [data1])
 
         # For namespaced resources, if you do a list specifying a namespace
         # we'll get results for that namespace.
-        rc = calicoctl("get %s -o yaml -n namespace2" % kind)
+        rc = calicoctl(f"get {kind} -o yaml -n namespace2")
         rc.assert_list(kind, [data2])
 
         # Doing a get by file will use the namespace in the file.
@@ -693,10 +720,10 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_error(NOT_FOUND)
 
         # Deleting without a namespace will delete the default.
-        rc = calicoctl("delete %s %s" % (kind, data1['metadata']['name']))
+        rc = calicoctl(f"delete {kind} {data1['metadata']['name']}")
         rc.assert_no_error()
 
-        rc = calicoctl("delete %s %s" % (kind, data2['metadata']['name']))
+        rc = calicoctl(f"delete {kind} {data2['metadata']['name']}")
         rc.assert_error(NOT_FOUND)
         rc = calicoctl("delete", data2)
         rc.assert_no_error()
@@ -709,8 +736,7 @@ class TestCalicoctlCommands(TestBase):
         # resource version.
         rc = calicoctl("create", data=bgpconfig_name1_rev1)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get bgpconfig %s -o yaml" % name(bgpconfig_name1_rev1))
+        rc = calicoctl(f"get bgpconfig {name(bgpconfig_name1_rev1)} -o yaml")
         rc.assert_no_error()
         rev0 = rc.decoded
 
@@ -718,8 +744,7 @@ class TestCalicoctlCommands(TestBase):
         # assert the resource version is not the same.
         rc = calicoctl("replace", data=bgpconfig_name1_rev2)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get bgpconfig %s -o yaml" % name(bgpconfig_name1_rev2))
+        rc = calicoctl(f"get bgpconfig {name(bgpconfig_name1_rev2)} -o yaml")
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotEqual(rev0['metadata']['resourceVersion'], rev1['metadata']['resourceVersion'])
@@ -730,16 +755,14 @@ class TestCalicoctlCommands(TestBase):
 
         rc = calicoctl("create", data=bgpconfig_name2_rev1)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get bgpconfig %s -o yaml" % name(bgpconfig_name2_rev1))
+        rc = calicoctl(f"get bgpconfig {name(bgpconfig_name2_rev1)} -o yaml")
         rc.assert_no_error()
         rev2 = rc.decoded
 
         # Apply an update to the BGP Configuration and assert the resource version is not the same.
         rc = calicoctl("apply", data=bgpconfig_name2_rev2)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get bgpconfig %s -o yaml" % name(bgpconfig_name2_rev2))
+        rc = calicoctl(f"get bgpconfig {name(bgpconfig_name2_rev2)} -o yaml")
         rc.assert_no_error()
         rev3 = rc.decoded
         self.assertNotEqual(rev2['metadata']['resourceVersion'], rev3['metadata']['resourceVersion'])
@@ -749,7 +772,7 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_error(SET_DEFAULT)
 
         # Delete the resource by name (i.e. without using a resource version).
-        rc = calicoctl("delete bgpconfig %s" % name(rev3))
+        rc = calicoctl(f"delete bgpconfig {name(rev3)}")
         rc.assert_no_error()
 
     def test_felixconfig(self):
@@ -760,8 +783,7 @@ class TestCalicoctlCommands(TestBase):
         # resource version.
         rc = calicoctl("create", data=felixconfig_name1_rev1)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get felixconfig %s -o yaml" % name(felixconfig_name1_rev1))
+        rc = calicoctl(f"get felixconfig {name(felixconfig_name1_rev1)} -o yaml")
         rc.assert_no_error()
         rev0 = rc.decoded
 
@@ -769,8 +791,7 @@ class TestCalicoctlCommands(TestBase):
         # assert the resource version is not the same.
         rc = calicoctl("replace", data=felixconfig_name1_rev2)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get felixconfig %s -o yaml" % name(felixconfig_name1_rev2))
+        rc = calicoctl(f"get felixconfig {name(felixconfig_name1_rev2)} -o yaml")
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotEqual(rev0['metadata']['resourceVersion'], rev1['metadata']['resourceVersion'])
@@ -778,8 +799,7 @@ class TestCalicoctlCommands(TestBase):
         # Apply an update to the BGP Configuration and assert the resource version is not the same.
         rc = calicoctl("apply", data=felixconfig_name1_rev1)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get felixconfig %s -o yaml" % name(felixconfig_name1_rev1))
+        rc = calicoctl(f"get felixconfig {name(felixconfig_name1_rev1)} -o yaml")
         rc.assert_no_error()
         rev2 = rc.decoded
         self.assertNotEqual(rev1['metadata']['resourceVersion'], rev2['metadata']['resourceVersion'])
@@ -787,15 +807,14 @@ class TestCalicoctlCommands(TestBase):
         # Apply an update to the felix configuration with a large duration.
         rc = calicoctl("apply", data=felixconfig_name1_rev3)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get felixconfig %s -o yaml" % name(felixconfig_name1_rev3))
+        rc = calicoctl(f"get felixconfig {name(felixconfig_name1_rev3)} -o yaml")
         rc.assert_no_error()
         rev3 = rc.decoded
         self.assertEqual(rev3['spec']['netlinkTimeout'], '2m5s')
         self.assertEqual(rev3['spec']['reportingTTL'], '2h45m10s')
 
         # Delete the resource by name (i.e. without using a resource version).
-        rc = calicoctl("delete felixconfig %s" % name(rev2))
+        rc = calicoctl(f"delete felixconfig {name(rev2)}")
         rc.assert_no_error()
 
     def test_clusterinfo(self):
@@ -805,7 +824,7 @@ class TestCalicoctlCommands(TestBase):
         # Try to create a cluster info, should be rejected.
         rc = calicoctl("create", data=clusterinfo_name1_rev1)
         rc.assert_error(NOT_SUPPORTED)
-        rc = calicoctl("get clusterinfo %s -o yaml" % name(clusterinfo_name1_rev1))
+        rc = calicoctl(f"get clusterinfo {name(clusterinfo_name1_rev1)} -o yaml")
         rc.assert_error(NOT_FOUND)
 
         # Replace the cluster information (with no resource version) - assert not supported.
@@ -819,14 +838,14 @@ class TestCalicoctlCommands(TestBase):
 
         # Delete the resource by name (i.e. without using a resource version) - assert not
         # supported.
-        rc = calicoctl("delete clusterinfo %s" % name(clusterinfo_name1_rev1))
+        rc = calicoctl(f"delete clusterinfo {name(clusterinfo_name1_rev1)}")
         rc.assert_error(NOT_SUPPORTED)
 
         # Create a node, this should trigger auto-creation of a cluster info.
         rc = calicoctl("create", data=node_name2_rev1)
         rc.assert_no_error()
 
-        rc = calicoctl("get clusterinfo %s -o yaml" % name(clusterinfo_name1_rev1))
+        rc = calicoctl(f"get clusterinfo {name(clusterinfo_name1_rev1)} -o yaml")
         rc.assert_no_error()
         # Check the GUID is populated.
         self.assertRegexpMatches(rc.decoded["spec"]["clusterGUID"], "^[a-f0-9]{32}$")
@@ -838,7 +857,7 @@ class TestCalicoctlCommands(TestBase):
         # Create a second node, this should keep the existing cluster info.
         rc = calicoctl("create", data=node_name3_rev1)
         rc.assert_no_error()
-        rc = calicoctl("get clusterinfo %s -o yaml" % name(clusterinfo_name1_rev1))
+        rc = calicoctl(f"get clusterinfo {name(clusterinfo_name1_rev1)} -o yaml")
         rc.assert_no_error()
         rc.assert_data(ci)  # Implicitly checks the GUID is still the same.
 
@@ -851,7 +870,9 @@ class TestCalicoctlCommands(TestBase):
         rc = calicoctl("create", data=kubecontrollersconfig_name1_rev1)
         rc.assert_no_error()
         rc = calicoctl(
-            "get kubecontrollersconfig %s -o yaml" % name(kubecontrollersconfig_name1_rev1))
+            f"get kubecontrollersconfig {name(kubecontrollersconfig_name1_rev1)} -o yaml"
+        )
+
         rc.assert_no_error()
         rev0 = rc.decoded
 
@@ -860,7 +881,9 @@ class TestCalicoctlCommands(TestBase):
         rc = calicoctl("replace", data=kubecontrollersconfig_name1_rev2)
         rc.assert_no_error()
         rc = calicoctl(
-            "get kubecontrollersconfig %s -o yaml" % name(kubecontrollersconfig_name1_rev2))
+            f"get kubecontrollersconfig {name(kubecontrollersconfig_name1_rev2)} -o yaml"
+        )
+
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotEqual(rev0['metadata']['resourceVersion'], rev1['metadata']['resourceVersion'])
@@ -869,13 +892,15 @@ class TestCalicoctlCommands(TestBase):
         rc = calicoctl("apply", data=kubecontrollersconfig_name1_rev1)
         rc.assert_no_error()
         rc = calicoctl(
-            "get kubecontrollersconfig %s -o yaml" % name(kubecontrollersconfig_name1_rev1))
+            f"get kubecontrollersconfig {name(kubecontrollersconfig_name1_rev1)} -o yaml"
+        )
+
         rc.assert_no_error()
         rev2 = rc.decoded
         self.assertNotEqual(rev1['metadata']['resourceVersion'], rev2['metadata']['resourceVersion'])
 
         # Delete the resource by name (i.e. without using a resource version).
-        rc = calicoctl("delete kubecontrollersconfig %s" % name(rev2))
+        rc = calicoctl(f"delete kubecontrollersconfig {name(rev2)}")
         rc.assert_no_error()
 
     @parameterized.expand([
@@ -889,14 +914,12 @@ class TestCalicoctlCommands(TestBase):
         """
         # Create a new Host Endpoint and get it to determine the
         # current resource version (first checking that it doesn't exist).
-        rc = calicoctl(
-            "get hostendpoint %s -o yaml" % name(hostendpoint_name1_rev2))
+        rc = calicoctl(f"get hostendpoint {name(hostendpoint_name1_rev2)} -o yaml")
         rc.assert_error(text=NOT_FOUND)
 
         rc = calicoctl(create_cmd, data=hostendpoint_name1_rev2)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get hostendpoint %s -o yaml" % name(hostendpoint_name1_rev2))
+        rc = calicoctl(f"get hostendpoint {name(hostendpoint_name1_rev2)} -o yaml")
         rc.assert_no_error()
         rev0 = rc.decoded
         self.assertIn('uid', rev0['metadata'])
@@ -906,8 +929,7 @@ class TestCalicoctlCommands(TestBase):
         # assert the resource version is not the same.
         rc = calicoctl(update_cmd, data=hostendpoint_name1_rev3)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get hostendpoint %s -o yaml" % name(hostendpoint_name1_rev3))
+        rc = calicoctl(f"get hostendpoint {name(hostendpoint_name1_rev3)} -o yaml")
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotEqual(rev0['metadata']['resourceVersion'], rev1['metadata']['resourceVersion'])
@@ -931,7 +953,7 @@ class TestCalicoctlCommands(TestBase):
         self.assertEqual(rev1['metadata']['uid'], rev0['metadata']['uid'])
 
         # Delete the resource without using a resource version.
-        rc = calicoctl("delete hostendpoint %s" % name(rev1))
+        rc = calicoctl(f"delete hostendpoint {name(rev1)}")
         rc.assert_no_error()
 
     def test_export_flag(self):
@@ -942,8 +964,7 @@ class TestCalicoctlCommands(TestBase):
         # Create a new Network Policy with all metadata specified
         rc = calicoctl('create', data=networkpolicy_name2_rev1)
         rc.assert_no_error()
-        rc = calicoctl(
-            "get networkpolicy %s -o yaml" % name(networkpolicy_name2_rev1))
+        rc = calicoctl(f"get networkpolicy {name(networkpolicy_name2_rev1)} -o yaml")
         rc.assert_no_error()
         rev0 = rc.decoded
         self.assertIn('uid', rev0['metadata'])
@@ -955,7 +976,9 @@ class TestCalicoctlCommands(TestBase):
         # Retrieve the Network Policy with the export flag and
         # Verify that cluster-specific information is not present
         rc = calicoctl(
-            "get networkpolicy %s -o yaml --export" % name(networkpolicy_name2_rev1))
+            f"get networkpolicy {name(networkpolicy_name2_rev1)} -o yaml --export"
+        )
+
         rc.assert_no_error()
         rev1 = rc.decoded
         self.assertNotIn('uid', rev1['metadata'])
@@ -982,18 +1005,16 @@ class TestCalicoctlCommands(TestBase):
         self.assertEqual(rev2['items'][0]['metadata']['name'], rev0['metadata']['name'])
 
         # Apply the output and verify that it did not error out
-        rc = calicoctl(
-            "apply -f %s" % '/tmp/export_data.yaml')
+        rc = calicoctl('apply -f /tmp/export_data.yaml')
         rc.assert_no_error()
-        rc = calicoctl(
-            "get networkpolicy %s -o yaml" % name(networkpolicy_name2_rev1))
+        rc = calicoctl(f"get networkpolicy {name(networkpolicy_name2_rev1)} -o yaml")
         rc.assert_no_error()
         rev3 = rc.decoded
         self.assertEqual(rev3['metadata']['name'], rev1['metadata']['name'])
         self.assertEqual(rev3['spec']['order'], 100)
 
         # Delete the resource without using a resource version.
-        rc = calicoctl("delete networkpolicy %s" % name(rev3))
+        rc = calicoctl(f"delete networkpolicy {name(rev3)}")
         rc.assert_no_error()
 
     def test_disallow_crud_on_knp_defaults(self):
@@ -1028,16 +1049,14 @@ class TestCalicoctlCommands(TestBase):
         rc = calicoctl("create", data=ippool_name1_rev1_v4)
         rc.assert_no_error()
 
-        rc = calicoctl(
-                "get ippool %s -o yaml" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"get ippool {name(ippool_name1_rev1_v4)} -o yaml")
         rc.assert_no_error()
         rev1 = rc.decoded
 
         rc = calicoctl(update_cmd, data=rev1)
         rc.assert_no_error()
 
-        rc = calicoctl(
-                "get ippool %s -o yaml" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"get ippool {name(ippool_name1_rev1_v4)} -o yaml")
         rc.assert_no_error()
         rev2 = rc.decoded
         self.assertNotEqual(rev1['metadata']['resourceVersion'], rev2['metadata']['resourceVersion'])
@@ -1046,7 +1065,7 @@ class TestCalicoctlCommands(TestBase):
         rc.assert_error(text=ERROR_CONFLICT)
 
         # Delete the resource
-        rc = calicoctl("delete ippool %s" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"delete ippool {name(ippool_name1_rev1_v4)}")
         rc.assert_no_error()
 
     def test_bgppeer_node_selector(self):
@@ -1166,8 +1185,7 @@ class TestCalicoctlCommands(TestBase):
                 "patch ippool %s -p '{\"spec\":{\"natOutgoing\": true}}'" % name(ippool_name1_rev1_v4))
         rc.assert_no_error()
 
-        rc = calicoctl(
-                "get ippool %s -o yaml" % name(ippool_name1_rev1_v4))
+        rc = calicoctl(f"get ippool {name(ippool_name1_rev1_v4)} -o yaml")
         rc.assert_no_error()
         ippool1_rev1 = rc.decoded
         self.assertEqual(True,ippool1_rev1['spec']['natOutgoing'])

@@ -34,22 +34,31 @@ def release():
         new_version = raw_input("New Calico version? (vX.Y): ")
 
     # Check if any of the new version dirs exist already
-    new_dirs = ["./%s" % new_version,
-            "./_data/%s" % new_version,
-            "./_layouts/%s" % new_version]
+    new_dirs = [
+        f"./{new_version}",
+        f"./_data/{new_version}",
+        f"./_layouts/{new_version}",
+    ]
+
     for new_dir in new_dirs:
         if os.path.isdir(new_dir):
             # Quit instead of making assumptions.
-            print("A versioned folder for %s already exists. Remove and rerun this script?" % new_dir)
+            print(
+                f"A versioned folder for {new_dir} already exists. Remove and rerun this script?"
+            )
+
 
     # Create the versioned directories.
     shutil.copytree("./master", new_version)
 
     # Temporary workdown, use vX_Y instead of vX.Y
     # https://github.com/jekyll/jekyll/issues/5429 - Fixed in Jekyll 3.3
-    shutil.copytree("./_data/master", "./_data/%s" % new_version.replace(".", "_"))
-    shutil.copytree("./_includes/master", "./_includes/%s" % new_version, symlinks=True)
-    shutil.copytree("./_plugins/master", "./_plugins/%s" % new_version)
+    shutil.copytree("./_data/master", f'./_data/{new_version.replace(".", "_")}')
+    shutil.copytree(
+        "./_includes/master", f"./_includes/{new_version}", symlinks=True
+    )
+
+    shutil.copytree("./_plugins/master", f"./_plugins/{new_version}")
 
 if __name__ == "__main__":
     arguments = docopt(__doc__)

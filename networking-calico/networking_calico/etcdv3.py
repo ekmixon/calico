@@ -69,13 +69,10 @@ def get(key, with_lease=False):
         raise KeyNotFound()
     value, item = results[0]
     value = value.decode()
-    if with_lease:
-        lease = None
-        if 'lease' in item:
-            lease = Lease(int(item['lease']), client)
-        return value, item['mod_revision'], lease
-    else:
+    if not with_lease:
         return value, item['mod_revision']
+    lease = Lease(int(item['lease']), client) if 'lease' in item else None
+    return value, item['mod_revision'], lease
 
 
 def put(key, value, mod_revision=None, lease=None, existing_value=None):
@@ -138,23 +135,21 @@ def put(key, value, mod_revision=None, lease=None, existing_value=None):
             'target': 'VALUE',
             'value': base64_existing,
         }]
-    if txn:
-        base64_value = _encode(value)
-        txn['success'] = [{
-            'request_put': {
-                'key': base64_key,
-                'value': base64_value,
-            },
-        }]
-        txn['failure'] = []
-        if lease is not None:
-            txn['success'][0]['request_put']['lease'] = lease.id
-        result = client.transaction(txn)
-        LOG.debug("transaction result %s", result)
-        succeeded = result.get('succeeded', False)
-    else:
-        succeeded = client.put(key, value, lease=lease)
-    return succeeded
+    if not txn:
+        return client.put(key, value, lease=lease)
+    base64_value = _encode(value)
+    txn['success'] = [{
+        'request_put': {
+            'key': base64_key,
+            'value': base64_value,
+        },
+    }]
+    txn['failure'] = []
+    if lease is not None:
+        txn['success'][0]['request_put']['lease'] = lease.id
+    result = client.transaction(txn)
+    LOG.debug("transaction result %s", result)
+    return result.get('succeeded', False)
 
 
 def delete(key, existing_value=None, mod_revision=None):

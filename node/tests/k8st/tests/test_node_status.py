@@ -39,12 +39,12 @@ EOF
 """ % (name, node, interval))
 
 def read_status(name):
-    status_json = kubectl("get caliconodestatus %s -o json" % name)
+    status_json = kubectl(f"get caliconodestatus {name} -o json")
     status_dict = json.loads(status_json)
     return status_dict['status']
 
 def delete_status(name):
-    kubectl("delete caliconodestatuses.crd.projectcalico.org %s" % name)
+    kubectl(f"delete caliconodestatuses.crd.projectcalico.org {name}")
 
 def is_subdict(small, big):
     return dict(big, **small) == big
@@ -104,10 +104,7 @@ class TestNodeMeshStatus(TestBase):
         self.assertTrue(is_subdict(small, big))
 
     def assert_dictlist_has_subdict(self, small, bigList):
-        for big in bigList:
-            if is_subdict(small, big):
-                return True
-        return False
+        return any(is_subdict(small, big) for big in bigList)
 
 '''
 Sample output of caliconodestatus

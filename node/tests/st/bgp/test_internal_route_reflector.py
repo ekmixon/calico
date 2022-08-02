@@ -34,19 +34,17 @@ class TestInternalRouteReflector(TestBase):
         Run a multi-host test using an internal route reflector.
         """
         with DockerHost('host1',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host1, \
-             DockerHost('host2',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host2, \
-             DockerHost('host3',
-                        additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
-                        start_calico=False) as host3:
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host1, DockerHost('host2',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host2, DockerHost('host3',
+                            additional_docker_options=CLUSTER_STORE_DOCKER_OPTIONS,
+                            start_calico=False) as host3:
 
             # Start all hosts using specific backends.
-            host1.start_calico_node("--backend=%s" % backend)
-            host2.start_calico_node("--backend=%s" % backend)
-            host3.start_calico_node("--backend=%s" % backend)
+            host1.start_calico_node(f"--backend={backend}")
+            host2.start_calico_node(f"--backend={backend}")
+            host3.start_calico_node(f"--backend={backend}")
 
             # Set the default AS number - as this is used by the RR mesh, and
             # turn off the node-to-node mesh (do this from any host).
@@ -65,7 +63,7 @@ class TestInternalRouteReflector(TestBase):
             self.assert_false(workload_host1.check_can_ping(workload_host2.ip, retries=5))
 
             # Make host2 act as a route reflector.
-            node2 = host2.calicoctl("get Node %s -o yaml" % host2.get_hostname())
+            node2 = host2.calicoctl(f"get Node {host2.get_hostname()} -o yaml")
             node2cfg = yaml.safe_load(node2)
             logger.info("host2 Node: %s", node2cfg)
             node2cfg['spec']['bgp']['routeReflectorClusterID'] = '224.0.0.2'

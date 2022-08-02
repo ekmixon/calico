@@ -75,7 +75,7 @@ def _test_converter(testname, fail_expected, error_text=None, format="yaml"):
     testdata = data[testname]
 
     # Convert data to V3 API using the tool under test
-    rc = calicoctl("convert -o %s" % format, data=testdata, format=format)
+    rc = calicoctl(f"convert -o {format}", data=testdata, format=format)
     if not fail_expected:
         logger.debug("Trying to convert manifest from V1 to V3")
         rc.assert_no_error()
@@ -91,7 +91,7 @@ def _test_converter(testname, fail_expected, error_text=None, format="yaml"):
         rc = calicoctl("create", data=original_resource.output, format=format)
         logger.debug("Trying to create resource using converted manifest")
         rc.assert_no_error()
-        rc = calicoctl("get %s %s -o yaml" % (converted_data['kind'], name(converted_data)))
+        rc = calicoctl(f"get {converted_data['kind']} {name(converted_data)} -o yaml")
 
         # Comparison here needs to be against cleaned versions of data to remove Creation Timestamp
         logger.debug("Comparing 'get'ted output with original converted yaml")
@@ -110,7 +110,7 @@ def test_converter_yaml(testname, fail_expected, error_text=None):
     """
     Convert a v1 object to v3, then apply the result and read it back.
     """
-    test_converter_yaml.__name__ = "yaml_" +testname
+    test_converter_yaml.__name__ = f"yaml_{testname}"
     _test_converter(testname, fail_expected, error_text=error_text, format="yaml")
 
 @parameterized(tests)
@@ -118,5 +118,5 @@ def test_converter_json(testname, fail_expected, error_text=None):
     """
     Convert a v1 object to v3, then apply the result and read it back.
     """
-    test_converter_json.__name__ = "json_" + testname
+    test_converter_json.__name__ = f"json_{testname}"
     _test_converter(testname, fail_expected, error_text=error_text, format="json")

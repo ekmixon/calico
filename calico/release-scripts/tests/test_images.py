@@ -52,64 +52,59 @@ if RELEASE_STREAM in VERSIONS_WITHOUT_FLANNEL_MIGRATION:
     EXCLUDED_IMAGES.append("calico/flannel-migration-controller")
     print('[INFO] excluding "calico/flannel-migration-controller" for older release')
 
-with open("%s/_data/versions.yml" % DOCS_PATH) as f:
+with open(f"{DOCS_PATH}/_data/versions.yml") as f:
     versions = yaml.safe_load(f)
     RELEASE_VERSION = versions[0]["title"]
-    print("[INFO] using _data/versions.yaml, discovered version: %s" % RELEASE_VERSION)
+    print(
+        f"[INFO] using _data/versions.yaml, discovered version: {RELEASE_VERSION}"
+    )
 
 
 def test_operator_image_present():
-    with open("%s/_data/versions.yml" % DOCS_PATH) as versionsFile:
+    with open(f"{DOCS_PATH}/_data/versions.yml") as versionsFile:
         versions = yaml.safe_load(versionsFile)
         for version in versions:
             if version["title"] == RELEASE_VERSION:
                 # Found matching version. Perform the test.
                 operator = version["tigera-operator"]
-                img = "%s/%s:%s" % (
-                    operator["registry"],
-                    operator["image"],
-                    operator["version"],
-                )
-                print("[INFO] checking %s" % img)
+                img = f'{operator["registry"]}/{operator["image"]}:{operator["version"]}'
+                print(f"[INFO] checking {img}")
                 headers = {"content-type": "application/json"}
                 req = requests.get(
-                    "https://quay.io/api/v1/repository/tigera/operator/tag/%s/images"
-                    % (operator["version"]),
+                    f'https://quay.io/api/v1/repository/tigera/operator/tag/{operator["version"]}/images',
                     headers=headers,
                 )
+
                 assert req.status_code == 200
                 return
         assert False, "Unable to find matching version"
 
 
 def test_quay_release_tag_present():
-    with open("%s/_config.yml" % DOCS_PATH) as config:
+    with open(f"{DOCS_PATH}/_config.yml") as config:
         images = yaml.safe_load(config)
         for image in images["imageNames"]:
             image_name = images["imageNames"][image].replace("docker.io/", "")
             if image_name not in EXCLUDED_IMAGES:
-                print("[INFO] checking quay.io/%s:%s" % (image_name, RELEASE_VERSION))
+                print(f"[INFO] checking quay.io/{image_name}:{RELEASE_VERSION}")
 
                 headers = {"content-type": "application/json"}
                 req = requests.get(
-                    "https://quay.io/api/v1/repository/%s/tag/%s/images"
-                    % (image_name, RELEASE_VERSION),
+                    f"https://quay.io/api/v1/repository/{image_name}/tag/{RELEASE_VERSION}/images",
                     headers=headers,
                 )
+
                 assert req.status_code == 200
 
 
 def test_gcr_release_tag_present():
-    with open("%s/_config.yml" % DOCS_PATH) as config:
+    with open(f"{DOCS_PATH}/_config.yml") as config:
         images = yaml.safe_load(config)
         for image in images["imageNames"]:
             image_name = images["imageNames"][image].replace("docker.io/", "")
             if image_name in GCR_IMAGES:
                 gcr_name = image_name.replace("calico/", "")
-                print(
-                    "[INFO] checking gcr.io/projectcalico-org/%s:%s"
-                    % (gcr_name, RELEASE_VERSION)
-                )
+                print(f"[INFO] checking gcr.io/projectcalico-org/{gcr_name}:{RELEASE_VERSION}")
                 cmd = (
                     'docker manifest inspect gcr.io/projectcalico-org/%s:%s | jq -r "."'
                     % (gcr_name, RELEASE_VERSION)
@@ -123,20 +118,21 @@ def test_gcr_release_tag_present():
                         "[ERROR] Didn't get json back from docker manifest inspect.  Does image exist?"
                     )
                     assert False
-                found_archs = []
-                for platform in metadata["manifests"]:
-                    found_archs.append(platform["platform"]["architecture"])
+                found_archs = [
+                    platform["platform"]["architecture"]
+                    for platform in metadata["manifests"]
+                ]
 
                 assert EXPECTED_ARCHS.sort() == found_archs.sort()
 
 
 def test_docker_release_tag_present():
-    with open("%s/_config.yml" % DOCS_PATH) as config:
+    with open(f"{DOCS_PATH}/_config.yml") as config:
         images = yaml.safe_load(config)
         for image in images["imageNames"]:
             image_name = images["imageNames"][image].replace("docker.io/", "")
             if image_name not in EXCLUDED_IMAGES:
-                print("[INFO] checking %s:%s" % (image_name, RELEASE_VERSION))
+                print(f"[INFO] checking {image_name}:{RELEASE_VERSION}")
                 cmd = 'docker manifest inspect %s:%s | jq -r "."' % (
                     image_name,
                     RELEASE_VERSION,
@@ -144,51 +140,47 @@ def test_docker_release_tag_present():
 
                 req = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
                 metadata = json.loads(req.stdout.read())
-                found_archs = []
-                print("[INFO] metadata: %s" % metadata)
-                for platform in metadata["manifests"]:
-                    found_archs.append(platform["platform"]["architecture"])
+                print(f"[INFO] metadata: {metadata}")
+                found_archs = [
+                    platform["platform"]["architecture"]
+                    for platform in metadata["manifests"]
+                ]
 
                 assert EXPECTED_ARCHS.sort() == found_archs.sort()
 
 
 def test_operator_images():
-    with open("%s/_data/versions.yml" % DOCS_PATH) as versionsFile:
+    with open(f"{DOCS_PATH}/_data/versions.yml") as versionsFile:
         versions = yaml.safe_load(versionsFile)
         for version in versions:
             if version["title"] == RELEASE_VERSION:
                 # Found matching version. Perform the test.
                 operator = version["tigera-operator"]
-                img = "%s/%s:%s" % (
-                    operator["registry"],
-                    operator["image"],
-                    operator["version"],
-                )
+                img = f'{operator["registry"]}/{operator["image"]}:{operator["version"]}'
                 break
     if operator["version"] not in VERSIONS_WITHOUT_IMAGE_LIST:
-        print("[INFO] getting image list from %s" % img)
-        cmd = "docker pull %s" % img
+        print(f"[INFO] getting image list from {img}")
+        cmd = f"docker pull {img}"
         req = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         output = req.stdout.read()
         print("[INFO] Pulling operator image:\n%s" % output)
 
-        cmd = "docker run --rm -t %s -print-images list" % img
+        cmd = f"docker run --rm -t {img} -print-images list"
         req = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         output = req.stdout.read()
         image_list = output.splitlines()
         print("[INFO] got image list:\n%s" % image_list)
 
-        with open("%s/_config.yml" % DOCS_PATH) as config:
+        with open(f"{DOCS_PATH}/_config.yml") as config:
             images = yaml.safe_load(config)
             for image in images["imageNames"]:
                 image_name = images["imageNames"][image]
                 if image_name.replace("docker.io/", "") not in OPERATOR_EXCLUDED_IMAGES:
-                    this_image = "%s:%s" % (image_name, RELEASE_VERSION)
-                    print(
-                        "[INFO] checking %s is in the operator image list" % this_image
-                    )
-                    assert this_image in image_list, (
-                        "%s not found in operator image list" % this_image
-                    )
+                    this_image = f"{image_name}:{RELEASE_VERSION}"
+                    print(f"[INFO] checking {this_image} is in the operator image list")
+                    assert (
+                        this_image in image_list
+                    ), f"{this_image} not found in operator image list"
+
     else:
         print("[INFO] This version of operator does not have an image list")

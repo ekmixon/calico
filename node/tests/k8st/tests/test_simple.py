@@ -69,10 +69,10 @@ class TestGracefulRestart(TestBase):
                 restart_func(self)
 
             # Kill the ip monitor process.
-            run("docker exec %s pkill ip" % monitor_node)
+            run(f"docker exec {monitor_node} pkill ip")
 
             # Dump the monitor output.
-            monitor_output = run("docker exec %s cat rmon.txt" % monitor_node)
+            monitor_output = run(f"docker exec {monitor_node} cat rmon.txt")
 
             if expect_churn:
                 # Assert that it is not empty.
@@ -85,9 +85,10 @@ class TestGracefulRestart(TestBase):
         # Test the methodology here, by verifying that we _do_ observe
         # route churn if we kill BIRD with SIGTERM.
         def kill_bird(self):
-            run("docker exec %s pkill bird" % self.restart_node)
+            run(f"docker exec {self.restart_node} pkill bird")
             def check_bird_running():
-                run("docker exec %s pgrep bird" % self.restart_node)
+                run(f"docker exec {self.restart_node} pgrep bird")
+
             retry_until_success(check_bird_running, retries=10, wait_time=1)
             time.sleep(5)
 
@@ -98,14 +99,16 @@ class TestGracefulRestart(TestBase):
         # Test that we do _not_ observe route churn when Kubernetes
         # deletes and restarts a pod.
         def delete_calico_node_pod(self):
-            run("kubectl delete po %s -n kube-system" % self.restart_pod_name)
+            run(f"kubectl delete po {self.restart_pod_name} -n kube-system")
 
             # Wait until a replacement calico-node pod has been created.
             retry_until_success(self.get_restart_node_pod_name, retries=10, wait_time=1)
 
             # Wait until it is ready, before returning.
-            run("kubectl wait po %s -n kube-system --timeout=2m --for=condition=ready" %
-                self.restart_pod_name)
+            run(
+                f"kubectl wait po {self.restart_pod_name} -n kube-system --timeout=2m --for=condition=ready"
+            )
+
 
         # Expect GR behaviour, i.e. no route churn.
         self._test_restart_route_churn(8, delete_calico_node_pod, False)
@@ -246,8 +249,13 @@ class TestSimplePolicy(TestBase):
     @staticmethod
     def check_connected(name):
         try:
-            kubectl("exec " + name + " -n policy-demo" +
-                    " -- /bin/wget -O /dev/null -q --timeout=1 nginx")
+            kubectl(
+                (
+                    f"exec {name} -n policy-demo"
+                    + " -- /bin/wget -O /dev/null -q --timeout=1 nginx"
+                )
+            )
+
         except subprocess.CalledProcessError:
             _log.exception("Failed to wget from nginx service")
             return False

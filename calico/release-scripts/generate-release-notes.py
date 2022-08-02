@@ -13,11 +13,11 @@ g = Github(os.environ.get('GITHUB_TOKEN'))
 # The milestone to generate notes for.
 assert os.environ.get('VERSION')
 VERSION=os.environ.get('VERSION')
-MILESTONE="Calico %s" % VERSION
+MILESTONE = f"Calico {VERSION}"
 RELEASE_STREAM = ".".join(VERSION.split(".")[:2])
 
 # The file where we'll store the release notes.
-FILENAME="_includes/release-notes/%s-release-notes.md" % VERSION
+FILENAME = f"_includes/release-notes/{VERSION}-release-notes.md"
 
 # Repositories we care about. Add repositories here to include them in release
 # note generation.
@@ -44,9 +44,9 @@ def issues_by_repo():
     all_issues = {}
     org = g.get_organization("projectcalico")
     for repo in org.get_repos():
-        if not repo.name in REPOS:
+        if repo.name not in REPOS:
             continue
-        print("Processing repo %s/%s" % (org.login, repo.name))
+        print(f"Processing repo {org.login}/{repo.name}")
 
         # Find the milestone. This finds all open milestones.
         milestones = repo.get_milestones()
@@ -55,7 +55,7 @@ def issues_by_repo():
                 # Found the milestone in this repo - look for issues (but only
                 # ones that have been closed!)
                 # TODO: Assert that the PR has been merged somehow?
-                print("  found milestone %s" % m.title)
+                print(f"  found milestone {m.title}")
                 try:
                     label = repo.get_label("release-note-required")
                 except github.UnknownObjectException:
@@ -70,13 +70,12 @@ def issues_by_repo():
 # issue as a list.  If it has a release-note section defined, that is used.
 # If not, then it simply returns the title.
 def extract_release_notes(issue):
-    # Look for a release note section in the body.
-    matches = re.findall(r'```release-note(.*?)```', issue.body, re.DOTALL)
-    if matches:
+    if matches := re.findall(
+        r'```release-note(.*?)```', issue.body, re.DOTALL
+    ):
         return [m.strip() for m in matches]
-    else:
-        print("WARNING: %s has no release-note section" % (issue.number))
-        return [issue.title.strip()]
+    print(f"WARNING: {issue.number} has no release-note section")
+    return [issue.title.strip()]
 
 if __name__ == "__main__":
     # Get the list of issues.
@@ -93,11 +92,11 @@ if __name__ == "__main__":
         f.write(u"#### Bug fixes\n\n")
         f.write(u"#### Other changes\n\n")
         for repo, issues in all_issues.items():
-            print("Writing notes for %s" % repo)
+            print(f"Writing notes for {repo}")
             for i in issues:
                 for note in extract_release_notes(i):
                     f.write(" - %s [%s #%d](%s) (@%s)\n" % (note, repo, i.number, i.html_url, i.user.login))
 
     print("")
-    print("Release notes written to " + FILENAME)
+    print(f"Release notes written to {FILENAME}")
     print("Please review for accuracy, and format appropriately before releasing.")
